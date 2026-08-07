@@ -4,8 +4,10 @@ import { QuizSetup } from '@/components/QuizSetup'
 import { QuizGame } from '@/components/QuizGame'
 import { QuizResults } from '@/components/QuizResults'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { cn } from '@/lib/utils'
 import { getBestScore, saveBestScore } from '@/lib/best-scores'
 import {
+  MODES,
   buildQuiz,
   retryQuiz,
   type Answered,
@@ -38,9 +40,17 @@ export default function App() {
     setScreen({ name: 'results', answers, isNewBest: saveBestScore(mode, scope, percent) })
   }
 
+  // Une carte a besoin de place : les modes qui en affichent une élargissent la
+  // colonne pendant le jeu, les réglages et le récapitulatif restent compacts.
+  const wide = screen.name === 'playing' && MODES[mode].needsMap
+
   return (
     <div className="min-h-dvh bg-background">
-      <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:py-12">
+      <div
+        // Pas de transition sur la largeur : animer `max-width` fait refluer
+        // toute la page, alors que l'écran change de toute façon d'un coup.
+        className={cn('mx-auto w-full px-4 py-8 sm:py-12', wide ? 'max-w-5xl' : 'max-w-2xl')}
+      >
         <header className="mb-8 flex items-start justify-between gap-4">
           <div className="space-y-1">
             <h1 className="flex items-center gap-2 font-heading text-2xl font-semibold tracking-tight">
@@ -48,7 +58,7 @@ export default function App() {
               Géo&nbsp;Quiz
             </h1>
             <p className="text-sm text-muted-foreground">
-              Drapeaux et capitales des 194 pays du monde, par continent.
+              Drapeaux, capitales et carte des 194 pays du monde, par continent.
             </p>
           </div>
           <ThemeToggle />
@@ -72,6 +82,7 @@ export default function App() {
             // Remonter le composant force un état de jeu neuf à chaque série.
             key={screen.round}
             mode={mode}
+            scope={scope}
             questions={screen.questions}
             onFinish={finish}
             onQuit={() => setScreen({ name: 'setup' })}

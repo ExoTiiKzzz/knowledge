@@ -1,4 +1,4 @@
-import { Building2, Flag as FlagIcon, Play } from 'lucide-react'
+import { Building2, Flag as FlagIcon, Globe, MapPin, Play } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,7 +25,12 @@ type QuizSetupProps = {
   onStart: () => void
 }
 
-const MODE_ICONS = { flags: FlagIcon, capitals: Building2 }
+const MODE_ICONS: Record<Mode, typeof FlagIcon> = {
+  flags: FlagIcon,
+  capitals: Building2,
+  mapFind: MapPin,
+  mapName: Globe,
+}
 
 export function QuizSetup({
   mode,
@@ -37,8 +42,10 @@ export function QuizSetup({
   onCountChange,
   onStart,
 }: QuizSetupProps) {
-  const available = countriesIn(scope).length
+  const available = countriesIn(scope, mode).length
   const asked = count === null ? available : Math.min(count, available)
+  // Les modes carte laissent de côté les micro-États sans géométrie.
+  const excluded = countriesIn(scope).length - available
 
   return (
     <div className="space-y-6">
@@ -125,6 +132,12 @@ export function QuizSetup({
                 </>
               )}
             </p>
+            {excluded > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {excluded} micro-État{excluded > 1 ? 's' : ''} sans tracé sur la carte
+                {excluded > 1 ? ' sont écartés' : ' est écarté'} de ce mode.
+              </p>
+            )}
           </div>
           <Button size="lg" onClick={onStart} disabled={asked === 0}>
             <Play data-icon="inline-start" />

@@ -1,22 +1,57 @@
 import { COUNTRIES, type Continent, type Country } from '@/data/countries'
+import { MAP_SHAPES } from '@/data/map'
 import { checkAnswer, closestMatch, withinTolerance, type Verdict } from '@/lib/answer'
 
 /** Ce que le quiz demande de deviner. */
-export type Mode = 'flags' | 'capitals'
+export type Mode = 'flags' | 'capitals' | 'mapFind' | 'mapName'
 
-export const MODES: Record<Mode, { label: string; short: string; description: string; prompt: string }> = {
+type ModeSpec = {
+  label: string
+  description: string
+  /** Consigne affichée sous la question. */
+  prompt: string
+  /** Comment on répond : au clavier, ou en cliquant la carte. */
+  answer: 'text' | 'click'
+  /** Le mode a-t-il besoin de la géométrie de la carte ? */
+  needsMap: boolean
+}
+
+export const MODES: Record<Mode, ModeSpec> = {
   flags: {
     label: 'Drapeaux',
-    short: 'Drapeaux',
     description: 'On te montre un drapeau, tu écris le pays.',
     prompt: 'Quel est ce pays ?',
+    answer: 'text',
+    needsMap: false,
   },
   capitals: {
     label: 'Capitales',
-    short: 'Capitales',
     description: 'On te donne un pays, tu écris sa capitale.',
     prompt: 'Quelle est sa capitale ?',
+    answer: 'text',
+    needsMap: false,
   },
+  mapFind: {
+    label: 'Placer sur la carte',
+    description: 'On te donne un pays, tu le cliques sur la carte.',
+    prompt: 'Clique ce pays sur la carte',
+    answer: 'click',
+    needsMap: true,
+  },
+  mapName: {
+    label: 'Pays en surbrillance',
+    description: 'On surligne un pays sur la carte, tu écris son nom.',
+    prompt: 'Quel est le pays en surbrillance ?',
+    answer: 'text',
+    needsMap: true,
+  },
+}
+
+/** Codes des pays qui ont une géométrie sur la carte. */
+const MAPPED = new Set(MAP_SHAPES.map((shape) => shape.code).filter(Boolean) as string[])
+
+export function isMapped(country: Country): boolean {
+  return MAPPED.has(country.code)
 }
 
 /** `null` = tous les continents. */
@@ -40,19 +75,30 @@ export type Answered = Question & {
   guess: Guess | null
 }
 
+/** Le mode porte-t-il sur la capitale plutôt que sur le pays lui-même ? */
+function asksCapital(mode: Mode): boolean {
+  return mode === 'capitals'
+}
+
 export function acceptedFor(country: Country, mode: Mode): string[] {
   // Les codes ISO abrègent le pays, pas sa capitale.
-  return mode === 'flags'
-    ? [country.name, ...country.nameAliases, ...country.codes]
-    : [country.capital, ...country.capitalAliases]
+  return asksCapital(mode)
+    ? [country.capital, ...country.capitalAliases]
+    : [country.name, ...country.nameAliases, ...country.codes]
 }
 
 export function expectedFor(country: Country, mode: Mode): string {
-  return mode === 'flags' ? country.name : country.capital
+  return asksCapital(mode) ? country.capital : country.name
 }
 
-export function countriesIn(scope: Scope): Country[] {
-  return scope ? COUNTRIES.filter((c) => c.continent === scope) : COUNTRIES
+/**
+ * Périmètre jouable. Les modes carte écartent les 29 micro-États sans géométrie
+ * dans Natural Earth (Malte, Singapour, Monaco, Vatican…) : les surligner ou les
+ * cliquer serait de toute façon impossible.
+ */
+export function countriesIn(scope: Scope, mode?: Mode): Country[] {
+  const inScope = scope ? COUNTRIES.filter((c) => c.continent === scope) : COUNTRIES
+  return mode && MODES[mode].needsMap ? inScope.filter(isMapped) : inScope
 }
 
 export function flagUrl(code: string, width: 320 | 640 = 640): string {
@@ -70,7 +116,7 @@ function shuffle<T>(items: T[]): T[] {
 
 /** Tire une série de questions. `count` à `null` pour prendre tout le périmètre. */
 export function buildQuiz(mode: Mode, scope: Scope, count: number | null): Question[] {
-  const pool = countriesIn(scope)
+  const pool = countriesIn(scope, mode)
   const picked = count === null ? shuffle(pool) : shuffle(pool).slice(0, count)
   return picked.map((country) => ({ country, accepted: acceptedFor(country, mode) }))
 }
@@ -152,4 +198,28 @@ function distractorsFor(country: Country, mode: Mode): string[][] {
  */
 export function gradeAnswer(input: string, question: Question, mode: Mode): Verdict {
   return checkAnswer(input, question.accepted, distractorsFor(question.country, mode))
+}
+
+const BY_CODE = new Map(COUNTRIES.map((c) => [c.code, c]))
+
+export function countryByCode(code: string): Country | undefined {
+  return BY_CODE.get(code)
+}
+
+/**
+ * Corrige un clic sur la carte. Contrairement au clavier, il n'y a pas de
+ * « presque » : soit c'est le bon pays, soit c'en est un autre — et cet autre
+ * pays est connu d'emblée, sans avoir à le deviner.
+ */
+export function gradeClick(
+  code: string,
+  question: Question,
+): { verdict: Verdict; guess: Guess | null } {
+  if (code === question.country.code) return { verdict: { status: 'exact' }, guess: null }
+
+  const clicked = countryByCode(code)
+  return {
+    verdict: { status: 'wrong' },
+    guess: clicked ? { country: clicked, label: clicked.name } : null,
+  }
 }

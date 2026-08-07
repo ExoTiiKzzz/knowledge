@@ -84,11 +84,12 @@ function AnswerRow({ answer, mode }: { answer: Answered; mode: Mode }) {
     <div className="flex items-center gap-3 px-4 py-2.5">
       <Flag code={answer.country.code} />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">
-          {mode === 'flags' ? answer.country.name : expected}
-        </p>
+        {/* La réponse attendue en tête ; en dessous, ce qui la situe. Hors mode
+            Capitales, `expected` est déjà le nom du pays : le répéter en
+            sous-titre n'apprendrait rien, le continent si. */}
+        <p className="truncate text-sm font-medium">{expected}</p>
         <p className="truncate text-xs text-muted-foreground">
-          {mode === 'flags' ? answer.country.continent : answer.country.name}
+          {mode === 'capitals' ? answer.country.name : answer.country.continent}
         </p>
       </div>
 
