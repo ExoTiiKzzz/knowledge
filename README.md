@@ -53,15 +53,19 @@ Pour ajouter un raccourci, voir [Données](#données) ci-dessous.
 
 ## Erreurs identifiées
 
-Quand la réponse est fausse, l'app cherche ce qu'elle désignait réellement et l'affiche avec
-son drapeau (`identify()` dans [src/lib/quiz.ts](src/lib/quiz.ts)) :
+Quand la réponse est fausse, l'app cherche ce qu'elle désignait réellement et l'affiche
+(`identify()` dans [src/lib/quiz.ts](src/lib/quiz.ts)).
 
-| Question | Réponse | Retour |
-| --- | --- | --- |
-| drapeau 🇬🇧 | `france` | Non, la réponse était **Royaume-Uni**. Ta réponse, c'est ce drapeau : 🇫🇷 France |
-| capitale de la Suisse | `vienne` | Non, la réponse était **Berne**. **Vienne** est la capitale de : 🇦🇹 Autriche |
+En **mode Drapeaux**, les deux drapeaux remplacent la question et se présentent côte à côte,
+à hauteur de cadre égale pour être comparés — répondre `france` au drapeau britannique
+affiche 🇬🇧 *Royaume-Uni · la réponse* à gauche et 🇫🇷 *France · ta réponse* à droite. Faute
+de pays identifié, le grand drapeau seul reste en place.
 
-Le récapitulatif final reprend ce drapeau à côté de chaque réponse barrée.
+En **mode Capitales**, la question n'est pas un drapeau : le retour cite la capitale
+reconnue et le pays qu'elle dessert, drapeau à la même taille que celui de la question —
+`vienne` pour la Suisse donne « **Vienne** est la capitale de : 🇦🇹 Autriche ».
+
+Le récapitulatif final reprend le drapeau identifié à côté de chaque réponse barrée.
 
 Deux garde-fous, pour ne pas raconter n'importe quoi :
 

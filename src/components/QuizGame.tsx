@@ -99,7 +99,7 @@ export function QuizGame({ mode, questions, onFinish, onQuit }: QuizGameProps) {
 
       <Card>
         <CardContent className="space-y-5">
-          <Prompt mode={mode} question={question} />
+          <Prompt mode={mode} question={question} guess={guess} />
 
           <form
             onSubmit={(event) => {
@@ -173,38 +173,82 @@ export function QuizGame({ mode, questions, onFinish, onQuit }: QuizGameProps) {
 }
 
 /**
- * Rattache la réponse fausse à ce qu'elle désignait, drapeau compris — répondre
- * « France » au drapeau britannique montre le drapeau français à côté.
+ * Rattache la réponse fausse à ce qu'elle désignait — en mode Capitales, où la
+ * question n'est pas un drapeau et ne se prête donc pas à la comparaison
+ * côte à côte de `FlagComparison`.
  *
- * Les tournures évitent l'article devant le nom du pays : « capitale de
+ * La tournure évite l'article devant le nom du pays : « capitale de
  * l'Allemagne » contre « du Japon » contre « des Pays-Bas » demanderait de
  * connaître le genre et le nombre de chacun des 194 pays.
  */
-function GuessLine({ guess, mode }: { guess: Guess; mode: Mode }) {
+function GuessLine({ guess }: { guess: Guess }) {
   return (
     <p className="flex flex-wrap items-center gap-2 border-t border-destructive/20 pt-2">
       <span className="text-destructive/80">
-        {mode === 'flags' ? (
-          'Ta réponse, c’est ce drapeau :'
-        ) : (
-          <>
-            <strong>{guess.label}</strong> est la capitale de :
-          </>
-        )}
+        <strong>{guess.label}</strong> est la capitale de :
       </span>
-      <span className="flex items-center gap-1.5 font-medium">
-        <Flag code={guess.country.code} />
+      <span className="flex items-center gap-2 font-medium">
+        {/* Même hauteur que le drapeau de la question, pour se comparer à lui. */}
+        <Flag code={guess.country.code} className="h-10" />
         {guess.country.name}
       </span>
     </p>
   )
 }
 
-function Prompt({ mode, question }: { mode: Mode; question: Question }) {
+/** Le drapeau demandé et celui qu'on a nommé, à taille égale pour être comparés. */
+function FlagComparison({ question, guess }: { question: Question; guess: Guess }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:gap-5">
+      <FlagAnswer
+        code={question.country.code}
+        name={question.country.name}
+        caption="la réponse"
+        correct
+      />
+      <FlagAnswer code={guess.country.code} name={guess.country.name} caption="ta réponse" />
+    </div>
+  )
+}
+
+function FlagAnswer({
+  code,
+  name,
+  caption,
+  correct,
+}: {
+  code: string
+  name: string
+  caption: string
+  correct?: boolean
+}) {
+  return (
+    <div className="space-y-2">
+      <Flag code={code} frame="md" />
+      <div className="text-center">
+        <p
+          className={cn(
+            'text-sm font-medium',
+            correct ? 'text-emerald-700 dark:text-emerald-400' : 'text-destructive',
+          )}
+        >
+          {name}
+        </p>
+        <p className="text-xs text-muted-foreground">{caption}</p>
+      </div>
+    </div>
+  )
+}
+
+function Prompt({ mode, question, guess }: { mode: Mode; question: Question; guess: Guess | null }) {
   if (mode === 'flags') {
-    return (
+    // Une fois le pays nommé identifié, les deux drapeaux se substituent à la
+    // question : les mettre en regard est ce qui fait retenir la différence.
+    return guess ? (
+      <FlagComparison question={question} guess={guess} />
+    ) : (
       <div className="flex flex-col items-center gap-4 py-2">
-        <Flag code={question.country.code} large />
+        <Flag code={question.country.code} frame="lg" />
         <p className="text-sm text-muted-foreground">{MODES.flags.prompt}</p>
       </div>
     )
@@ -250,7 +294,7 @@ function Feedback({
             )}
           </span>
         </p>
-        {guess && <GuessLine guess={guess} mode={mode} />}
+        {guess && mode === 'capitals' && <GuessLine guess={guess} />}
       </div>
     )
   }
