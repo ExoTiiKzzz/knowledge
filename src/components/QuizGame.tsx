@@ -8,7 +8,17 @@ import { Progress } from '@/components/ui/progress'
 import { Flag } from '@/components/Flag'
 import { cn } from '@/lib/utils'
 import type { Verdict } from '@/lib/answer'
-import { MODES, expectedFor, flagUrl, gradeAnswer, type Answered, type Mode, type Question } from '@/lib/quiz'
+import {
+  MODES,
+  expectedFor,
+  flagUrl,
+  gradeAnswer,
+  identify,
+  type Answered,
+  type Guess,
+  type Mode,
+  type Question,
+} from '@/lib/quiz'
 
 type QuizGameProps = {
   mode: Mode
@@ -21,6 +31,7 @@ export function QuizGame({ mode, questions, onFinish, onQuit }: QuizGameProps) {
   const [index, setIndex] = useState(0)
   const [input, setInput] = useState('')
   const [verdict, setVerdict] = useState<Verdict | null>(null)
+  const [guess, setGuess] = useState<Guess | null>(null)
   const [answers, setAnswers] = useState<Answered[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -46,8 +57,10 @@ export function QuizGame({ mode, questions, onFinish, onQuit }: QuizGameProps) {
     if (verdict) return next()
     if (!input.trim()) return
     const result = gradeAnswer(input, question, mode)
+    const named = result.status === 'wrong' ? identify(input, question, mode) : null
     setVerdict(result)
-    setAnswers((previous) => [...previous, { ...question, input, verdict: result }])
+    setGuess(named)
+    setAnswers((previous) => [...previous, { ...question, input, verdict: result, guess: named }])
   }
 
   function skip() {
@@ -57,7 +70,7 @@ export function QuizGame({ mode, questions, onFinish, onQuit }: QuizGameProps) {
     // Une question passée ne garde pas la saisie en cours : le retour et le
     // récapitulatif doivent tous deux la présenter comme non répondue.
     setInput('')
-    setAnswers((previous) => [...previous, { ...question, input: null, verdict: result }])
+    setAnswers((previous) => [...previous, { ...question, input: null, verdict: result, guess: null }])
   }
 
   function next() {
@@ -65,6 +78,7 @@ export function QuizGame({ mode, questions, onFinish, onQuit }: QuizGameProps) {
     setIndex(index + 1)
     setInput('')
     setVerdict(null)
+    setGuess(null)
   }
 
   const isLast = index + 1 >= questions.length
@@ -142,10 +156,47 @@ export function QuizGame({ mode, questions, onFinish, onQuit }: QuizGameProps) {
             </div>
           </form>
 
-          {verdict && <Feedback verdict={verdict} input={input} expected={expected} country={question.country.name} mode={mode} />}
+          {verdict && (
+            <Feedback
+              verdict={verdict}
+              input={input}
+              expected={expected}
+              country={question.country.name}
+              guess={guess}
+              mode={mode}
+            />
+          )}
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+/**
+ * Rattache la réponse fausse à ce qu'elle désignait, drapeau compris — répondre
+ * « France » au drapeau britannique montre le drapeau français à côté.
+ *
+ * Les tournures évitent l'article devant le nom du pays : « capitale de
+ * l'Allemagne » contre « du Japon » contre « des Pays-Bas » demanderait de
+ * connaître le genre et le nombre de chacun des 194 pays.
+ */
+function GuessLine({ guess, mode }: { guess: Guess; mode: Mode }) {
+  return (
+    <p className="flex flex-wrap items-center gap-2 border-t border-destructive/20 pt-2">
+      <span className="text-destructive/80">
+        {mode === 'flags' ? (
+          'Ta réponse, c’est ce drapeau :'
+        ) : (
+          <>
+            <strong>{guess.label}</strong> est la capitale de :
+          </>
+        )}
+      </span>
+      <span className="flex items-center gap-1.5 font-medium">
+        <Flag code={guess.country.code} />
+        {guess.country.name}
+      </span>
+    </p>
   )
 }
 
@@ -172,30 +223,35 @@ function Feedback({
   input,
   expected,
   country,
+  guess,
   mode,
 }: {
   verdict: Verdict
   input: string
   expected: string
   country: string
+  guess: Guess | null
   mode: Mode
 }) {
   if (verdict.status === 'wrong') {
     return (
-      <p className="flex flex-wrap items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
-        <X className="size-4 shrink-0" />
-        <span>
-          {input.trim() ? (
-            <>
-              Non, la réponse était <strong>{expected}</strong>.
-            </>
-          ) : (
-            <>
-              Passé — la réponse était <strong>{expected}</strong>.
-            </>
-          )}
-        </span>
-      </p>
+      <div className="space-y-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p className="flex flex-wrap items-center gap-2">
+          <X className="size-4 shrink-0" />
+          <span>
+            {input.trim() ? (
+              <>
+                Non, la réponse était <strong>{expected}</strong>.
+              </>
+            ) : (
+              <>
+                Passé — la réponse était <strong>{expected}</strong>.
+              </>
+            )}
+          </span>
+        </p>
+        {guess && <GuessLine guess={guess} mode={mode} />}
+      </div>
     )
   }
 

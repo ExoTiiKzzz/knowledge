@@ -1,5 +1,5 @@
 import { COUNTRIES, type Continent, type Country } from '@/data/countries'
-import { checkAnswer, type Verdict } from '@/lib/answer'
+import { checkAnswer, closestMatch, withinTolerance, type Verdict } from '@/lib/answer'
 
 /** Ce que le quiz demande de deviner. */
 export type Mode = 'flags' | 'capitals'
@@ -36,6 +36,8 @@ export type Answered = Question & {
   /** Saisie de l'utilisateur, `null` si la question a été passée. */
   input: string | null
   verdict: Verdict
+  /** En cas d'erreur, le pays que la saisie désignait réellement. */
+  guess: Guess | null
 }
 
 export function acceptedFor(country: Country, mode: Mode): string[] {
@@ -80,6 +82,50 @@ export function retryQuiz(answered: Answered[]): Question[] {
       .filter((a) => a.verdict.status === 'wrong')
       .map(({ country, accepted }) => ({ country, accepted })),
   )
+}
+
+/** Le pays qu'une réponse fausse désigne réellement. */
+export type Guess = {
+  country: Country
+  /** L'orthographe reconnue — le nom du pays, ou la capitale en mode Capitales. */
+  label: string
+}
+
+/**
+ * Retrouve ce que l'utilisateur a nommé quand il s'est trompé : « france » pour
+ * le drapeau britannique désigne la France, « berlin » pour la Belgique désigne
+ * l'Allemagne.
+ *
+ * Une simple faute de frappe sur la bonne réponse ne doit pas être présentée
+ * comme un autre pays : on n'identifie que si la saisie est *strictement* plus
+ * proche d'un autre pays que de la réponse attendue. « mozambic » reste donc une
+ * faute sur le Mozambique, et non une réponse « Zambie ».
+ */
+export function identify(input: string, question: Question, mode: Mode): Guess | null {
+  const target = closestMatch(input, question.accepted)
+
+  let best: (Guess & { distance: number }) | null = null
+  let ambiguous = false
+
+  for (const candidate of COUNTRIES) {
+    if (candidate.code === question.country.code) continue
+
+    const match = closestMatch(input, acceptedFor(candidate, mode))
+    if (!match.candidate) continue
+    if (match.distance >= target.distance) continue
+    if (!withinTolerance(input, match)) continue
+
+    if (!best || match.distance < best.distance) {
+      best = { country: candidate, label: match.candidate, distance: match.distance }
+      ambiguous = false
+    } else if (match.distance === best.distance) {
+      ambiguous = true
+    }
+  }
+
+  // Deux pays aussi proches l'un que l'autre : mieux vaut ne rien affirmer.
+  if (!best || ambiguous) return null
+  return { country: best.country, label: best.label }
 }
 
 /** Réponses valables de tous les *autres* pays, mémoïsées par mode. */

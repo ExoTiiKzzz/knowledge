@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { COUNTRIES } from '@/data/countries'
 import { normalize } from '@/lib/answer'
-import { acceptedFor, expectedFor, gradeAnswer, type Mode } from '@/lib/quiz'
+import { acceptedFor, expectedFor, gradeAnswer, identify, type Mode } from '@/lib/quiz'
 
 const byName = new Map(COUNTRIES.map((c) => [c.name, c]))
 
@@ -185,6 +185,60 @@ describe('cohérence du jeu de données', () => {
   it('a une capitale non vide pour chaque pays', () => {
     for (const c of COUNTRIES) {
       expect(expectedFor(c, 'capitals').trim(), c.name).not.toBe('')
+    }
+  })
+})
+
+describe('identification de la réponse donnée', () => {
+  function guessFor(name: string, input: string, mode: Mode = 'flags') {
+    const target = country(name)
+    return identify(input, { country: target, accepted: acceptedFor(target, mode) }, mode)
+  }
+
+  it.each([
+    ['Royaume-Uni', 'france', 'France'],
+    ['Belgique', 'allemagne', 'Allemagne'],
+    ['Guinée-Bissau', 'guinee', 'Guinée'],
+    ['Corée du Nord', 'coree du sud', 'Corée du Sud'],
+    ['Nigéria', 'niger', 'Niger'],
+    ['Zambie', 'gambie', 'Gambie'],
+    ['Autriche', 'australie', 'Australie'],
+    // Une faute sur le nom d'un autre pays reste attribuée à cet autre pays.
+    ['Slovaquie', 'slovenei', 'Slovénie'],
+  ])('%s ← « %s » désigne %s', (name, input, expected) => {
+    expect(guessFor(name, input)?.country.name).toBe(expected)
+  })
+
+  it.each([
+    ['Belgique', 'berlin', 'Allemagne'],
+    ['Suisse', 'vienne', 'Autriche'],
+    ['Chine', 'tokyo', 'Japon'],
+    ['Portugal', 'madrid', 'Espagne'],
+  ])('capitale de %s ← « %s » désigne %s', (name, input, expected) => {
+    expect(guessFor(name, input, 'capitals')?.country.name).toBe(expected)
+  })
+
+  it('rend la capitale reconnue, pour pouvoir la citer', () => {
+    expect(guessFor('Belgique', 'berlim', 'capitals')?.label).toBe('Berlin')
+  })
+
+  it('n’attribue pas une faute de frappe à un autre pays', () => {
+    // « mozambic » est à égale distance de Mozambique et de Zambie : c'est une
+    // faute sur la réponse attendue, pas une réponse « Zambie ».
+    expect(guessFor('Mozambique', 'mozambic')).toBeNull()
+    expect(guessFor('Afghanistan', 'afganistan')).toBeNull()
+    expect(guessFor('Kazakhstan', 'kazakstan')).toBeNull()
+  })
+
+  it('n’invente rien face à une saisie qui ne ressemble à aucun pays', () => {
+    expect(guessFor('France', 'xyzabc')).toBeNull()
+    expect(guessFor('France', 'reponsecompletementbidon')).toBeNull()
+    expect(guessFor('France', 'berlin')).toBeNull()
+  })
+
+  it('ne se désigne jamais lui-même', () => {
+    for (const c of COUNTRIES) {
+      expect(guessFor(c.name, c.name)?.country.name, c.name).not.toBe(c.name)
     }
   })
 })

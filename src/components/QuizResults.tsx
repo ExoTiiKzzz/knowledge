@@ -95,8 +95,10 @@ function AnswerRow({ answer, mode }: { answer: Answered; mode: Mode }) {
       {wrong ? (
         <div className="flex items-center gap-2">
           {answer.input?.trim() ? (
-            <Badge variant="outline" className="max-w-40 truncate line-through">
-              {answer.input.trim()}
+            <Badge variant="outline" className="max-w-44 gap-1.5">
+              {/* Le drapeau de ce que la réponse désignait, s'il a pu être identifié. */}
+              {answer.guess && <Flag code={answer.guess.country.code} className="h-3.5" />}
+              <span className="truncate line-through">{answer.input.trim()}</span>
             </Badge>
           ) : (
             <Badge variant="outline">passé</Badge>

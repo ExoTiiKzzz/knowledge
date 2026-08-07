@@ -61,19 +61,35 @@ function tolerance(length: number): number {
  */
 const MIN_PREFIX = 5
 
-type Match = { distance: number; length: number }
+export type Match = {
+  distance: number
+  /** Longueur normalisée de l'orthographe retenue. */
+  length: number
+  /** L'orthographe retenue, telle qu'elle est écrite dans les données. */
+  candidate: string | null
+}
 
 /** Orthographe acceptée la plus proche de la saisie (déjà normalisée). */
 function closest(input: string, accepted: string[]): Match {
-  let best: Match = { distance: Infinity, length: 0 }
+  let best: Match = { distance: Infinity, length: 0, candidate: null }
   for (const candidate of accepted) {
     const normalized = normalize(candidate)
     if (!normalized) continue
     const distance = editDistance(input, normalized, best.distance)
-    if (distance < best.distance) best = { distance, length: normalized.length }
+    if (distance < best.distance) best = { distance, length: normalized.length, candidate }
     if (best.distance === 0) break
   }
   return best
+}
+
+/** Orthographe acceptée la plus proche d'une saisie brute. */
+export function closestMatch(input: string, accepted: string[]): Match {
+  return closest(normalize(input), accepted)
+}
+
+/** La correspondance tient-elle dans la tolérance aux fautes ? */
+export function withinTolerance(input: string, match: Match): boolean {
+  return match.distance <= tolerance(Math.max(normalize(input).length, match.length))
 }
 
 /** La saisie tronque-t-elle l'une des réponses acceptées ? */

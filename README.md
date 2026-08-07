@@ -51,8 +51,28 @@ La réponse est saisie librement, et une orthographe approchante est acceptée
 En revanche `rome` est refusé pour le Vatican : c'est la capitale de l'Italie.
 Pour ajouter un raccourci, voir [Données](#données) ci-dessous.
 
+## Erreurs identifiées
+
+Quand la réponse est fausse, l'app cherche ce qu'elle désignait réellement et l'affiche avec
+son drapeau (`identify()` dans [src/lib/quiz.ts](src/lib/quiz.ts)) :
+
+| Question | Réponse | Retour |
+| --- | --- | --- |
+| drapeau 🇬🇧 | `france` | Non, la réponse était **Royaume-Uni**. Ta réponse, c'est ce drapeau : 🇫🇷 France |
+| capitale de la Suisse | `vienne` | Non, la réponse était **Berne**. **Vienne** est la capitale de : 🇦🇹 Autriche |
+
+Le récapitulatif final reprend ce drapeau à côté de chaque réponse barrée.
+
+Deux garde-fous, pour ne pas raconter n'importe quoi :
+
+- **Une faute de frappe reste une faute de frappe.** L'identification n'a lieu que si la
+  saisie est *strictement* plus proche d'un autre pays que de la réponse attendue.
+  `mozambic` est à égale distance de Mozambique et de Zambie : rien n'est affirmé.
+- **Aucune conjecture en cas d'égalité** entre deux pays, ni face à une saisie qui ne
+  ressemble à aucun d'eux.
+
 ```bash
-npm test          # 60 tests, dont la validation de tout le jeu de données
+npm test          # 76 tests, dont la validation de tout le jeu de données
 ```
 
 ## Données
