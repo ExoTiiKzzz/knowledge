@@ -2,12 +2,64 @@
 
 Entraînement aux drapeaux, capitales et emplacements des 194 pays du monde, filtrable par
 continent.
-React + Vite + Tailwind v4 + shadcn/ui.
+Monolithe AdonisJS 7 + Inertia 5 + React 19 + Vite 8 + Tailwind v4 + shadcn/ui.
 
 ```bash
 npm install
-npm run dev
+npm run dev        # http://localhost:3333
 ```
+
+## Disposition
+
+```
+shared/{lib,data}    logique pure, importée par le serveur ET le client
+inertia/             app/ pages/ components/ lib/  — le front
+app/ bin/ config/ start/   — le serveur
+resources/views/app.edge   — le gabarit racine d'Inertia
+```
+
+Les alias `@/lib` et `@/data` pointent vers `shared/`, `@/*` vers `inertia/`. Le code de
+`shared/` n'emploie **aucun** alias : ses imports sont relatifs avec extension `.ts` explicite,
+seule forme acceptée à la fois par Vite, Vitest et le compilateur AdonisJS.
+
+Deux projets TypeScript : `tsconfig.json` pour le serveur (qui exclut `inertia/**`) et
+`inertia/tsconfig.json` pour le client. `npm run typecheck` vérifie les deux.
+
+Le **mode solo ne parle jamais au serveur** : sa page monte l'application cliente et fonctionne
+hors ligne une fois chargée.
+
+## Multijoueur
+
+Un joueur crée un **salon**, partage son code à 4 caractères ou son lien, et les autres le
+rejoignent avec un pseudonyme. Tous affrontent **la même manche au même instant** ; une bonne
+réponse rapporte d'autant plus qu'elle arrive tôt.
+
+Le **serveur est seul juge** : le client envoie la saisie brute, le serveur corrige en réutilisant
+la correction du solo, tient l'horloge et clôt les manches. Le client n'applique aucune règle — il
+affiche la vue qu'on lui pousse.
+
+- **Moteur** — [shared/lib/salon.ts](shared/lib/salon.ts), réducteur pur
+  `(état, événement, maintenant) → { état, effets }`. Ni horloge, ni aléatoire, ni réseau : c'est
+  ce qui rend les 56 tests de [salon.test.ts](shared/lib/salon.test.ts) possibles sans démarrer
+  l'application ni attendre un délai réel.
+- **Adaptateur** — `app/salons/registry.ts` exécute les effets : diffuser l'état à chaque joueur,
+  et programmer le réveil qui clôt une manche à son échéance.
+- **Transport** — événements serveur (SSE) du serveur vers les clients, un POST par réponse. Le
+  trafic est asymétrique : un seul message client→serveur par manche.
+
+Trois points d'implémentation à connaître :
+
+- Le client SSE est **écrit à la main** (une trentaine de lignes dans
+  `inertia/navigateur/salon-client.ts`). `@adonisjs/transmit-client` 1.1.0, dernière version
+  publiée, ouvre le flux sans le `uid` que le serveur en 3.x exige — la requête part en 500.
+- **`/api/salons` et `/__transmit` sont exemptés de CSRF**, et ce n'est pas un relâchement :
+  l'autorité est le jeton du joueur transmis dans le corps de la requête, qu'un site tiers ne peut
+  pas connaître. Aucun cookie ne porte de privilège.
+- Ne pas attendre l'événement `open` du flux pour s'abonner : Adonis n'émet les en-têtes qu'au
+  premier message, donc `open` n'arriverait jamais — l'abonnement doit partir aussitôt.
+
+Deux joueurs ne peuvent pas partager un même profil de navigateur : le jeton vit dans le stockage
+local, qui est par origine.
 
 ## Quatre modes
 
@@ -27,7 +79,7 @@ Les modes au clavier s'enchaînent sans la souris : Entrée valide, Entrée pass
 ## Correction tolérante
 
 La réponse est saisie librement, et une orthographe approchante est acceptée
-([src/lib/answer.ts](src/lib/answer.ts)) :
+([shared/lib/answer.ts](shared/lib/answer.ts)) :
 
 1. **Normalisation** — minuscules, accents, ponctuation, articles et espaces retirés.
    `N'Djaména` = `ndjamena`, `Le Caire` = `caire`.
@@ -57,7 +109,7 @@ Pour ajouter un raccourci, voir [Données](#données) ci-dessous.
 ## Erreurs identifiées
 
 Quand la réponse est fausse, l'app cherche ce qu'elle désignait réellement et l'affiche
-(`identify()` dans [src/lib/quiz.ts](src/lib/quiz.ts)).
+(`identify()` dans [shared/lib/quiz.ts](shared/lib/quiz.ts)).
 
 En **mode Drapeaux**, les deux drapeaux remplacent la question et se présentent côte à côte,
 à hauteur de cadre égale pour être comparés — répondre `france` au drapeau britannique
@@ -79,12 +131,12 @@ Deux garde-fous, pour ne pas raconter n'importe quoi :
   ressemble à aucun d'eux.
 
 ```bash
-npm test          # 114 tests, dont la validation de tout le jeu de données
+npm test          # 190 tests, dont la validation de tout le jeu de données
 ```
 
 ## La carte
 
-[src/components/WorldMap.tsx](src/components/WorldMap.tsx) rend un SVG dont les chemins sont
+[inertia/components/WorldMap.tsx](inertia/components/WorldMap.tsx) rend un SVG dont les chemins sont
 **projetés à la génération** (projection Natural Earth) : le navigateur ne reçoit que des
 chaînes `d`, sans `d3-geo` ni `topojson` dans le bundle.
 
@@ -145,7 +197,7 @@ Deux subtilités sur ces cercles :
 
 ## Données
 
-[src/data/countries.ts](src/data/countries.ts) et [src/data/map.ts](src/data/map.ts) sont
+[shared/data/countries.ts](shared/data/countries.ts) et [shared/data/map.ts](shared/data/map.ts) sont
 **générés** — ne pas les éditer à la main :
 
 ```bash

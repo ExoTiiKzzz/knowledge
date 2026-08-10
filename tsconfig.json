@@ -1,12 +1,23 @@
 {
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ],
+  "extends": "@adonisjs/tsconfig/tsconfig.app.json",
   "compilerOptions": {
+    "rootDir": "./",
+    "outDir": "./build",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/lib/*": [
+        "./shared/lib/*"
+      ],
+      "@/data/*": [
+        "./shared/data/*"
+      ]
     }
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "build",
+    "dist",
+    "inertia/**",
+    "**/*.test.ts",
+    "scripts/**"
+  ]
 }

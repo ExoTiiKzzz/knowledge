@@ -1,5 +1,5 @@
 /**
- * Génère src/data/countries.ts depuis le paquet `world-countries`.
+ * Génère shared/data/countries.ts depuis le paquet `world-countries`.
  *
  * `world-countries` fournit les noms de pays en français (translations.fra) mais
  * les capitales uniquement en anglais, et quelques traductions FR sont
@@ -238,5 +238,5 @@ export type Country = {
 export const COUNTRIES: Country[] = ${JSON.stringify(rows, null, 2)}
 `
 
-writeFileSync(new URL('../src/data/countries.ts', import.meta.url), out)
-console.log(`✔ ${rows.length} pays écrits dans src/data/countries.ts`)
+writeFileSync(new URL('../shared/data/countries.ts', import.meta.url), out)
+console.log(`✔ ${rows.length} pays écrits dans shared/data/countries.ts`)

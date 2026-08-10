@@ -1,5 +1,5 @@
 /**
- * Génère src/data/map.ts : la carte du monde en chemins SVG déjà projetés.
+ * Génère shared/data/map.ts : la carte du monde en chemins SVG déjà projetés.
  *
  * Projeter à la génération plutôt qu'à l'exécution évite d'embarquer d3-geo et
  * topojson dans le bundle — le navigateur ne reçoit que des chaînes `d`.
@@ -194,7 +194,7 @@ export type MapShape = {
 export const MAP_SHAPES: MapShape[] = ${JSON.stringify(shapes)}
 `
 
-writeFileSync(new URL('../src/data/map.ts', import.meta.url), out)
+writeFileSync(new URL('../shared/data/map.ts', import.meta.url), out)
 console.log(
   `✔ ${mapped} pays jouables (+ ${shapes.length - mapped} en fond) — viewBox 0 0 ${WIDTH} ${HEIGHT}`,
 )
