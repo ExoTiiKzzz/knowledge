@@ -37,5 +37,10 @@ router
   })
   .prefix('/api/rooms')
 
-/** Room broadcast channel: Transmit's server-sent event stream. */
+/**
+ * Room broadcast channel: Transmit's server-sent event stream.
+ *
+ * The anti-buffering headers live in a server-stack middleware, not here: they
+ * must be set before the controller starts writing to the stream.
+ */
 transmit.registerRoutes()

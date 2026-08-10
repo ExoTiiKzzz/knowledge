@@ -1,0 +1,29 @@
+# Tout ce qui suit ne doit jamais entrer dans l'image.
+
+# Dépendances : elles sont installées dans l'étape `deps`, pour l'architecture
+# de l'image. Copier celles de la machine hôte les écraserait.
+node_modules
+
+# Artefacts de construction, régénérés dans l'image.
+build
+dist
+public/assets
+
+# Secrets et réglages locaux. `.env` contient APP_KEY : le laisser entrer le
+# graverait dans l'image, lisible par quiconque la récupère.
+.env
+.env.*
+!.env.example
+
+# Inutile au build, et coûteux à transférer.
+.git
+.github
+.idea
+.vscode
+.scratch
+docs
+*.md
+!README.md
+.claude
+tmp
+coverage
