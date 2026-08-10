@@ -3,6 +3,7 @@ import {
   DEFAULT_SETTINGS,
   RejectionError,
   createRoom,
+  pendingWake,
   reduce,
   viewFor,
   type Room,
@@ -33,7 +34,8 @@ export function channelFor(code: string, token: string): string {
 
 class Registry {
   #rooms = new Map<string, Room>()
-  #timers = new Map<string, NodeJS.Timeout>()
+  /** One pending wake-up per room, with the instant it was scheduled for. */
+  #timers = new Map<string, { timer: NodeJS.Timeout; at: number }>()
 
   /** Creates a room and returns its code. */
   create(): string {
@@ -57,15 +59,19 @@ class Registry {
     const { room, effects } = reduce(before, event, now)
     this.#rooms.set(room.code, room)
 
-    // A wake-up already scheduled no longer applies: the state has moved on.
-    this.#cancelWake(room.code)
-
     for (const effect of effects) {
       if (effect.type === 'broadcast') this.#broadcast(room)
-      if (effect.type === 'wake') this.#scheduleWake(room, effect.at, now)
     }
 
-    if (room.closed) this.#rooms.delete(room.code)
+    // The timer is reconciled against the state, never merely cancelled: an event
+    // that emits no `wake` effect — an answer that leaves the round open, someone
+    // joining during the results pause — must not destroy the pending deadline.
+    this.#reconcileWake(room, now)
+
+    if (room.closed) {
+      this.#cancelWake(room.code)
+      this.#rooms.delete(room.code)
+    }
     return room
   }
 
@@ -101,31 +107,46 @@ class Registry {
   }
 
   /**
-   * Schedules the callback that moves the game on without a player acting: the
-   * deadline of an open round, or the end of the results pause.
+   * Brings the pending timer in line with what the room is waiting on: the
+   * deadline of an open round, the end of a results pause, or nothing.
+   *
+   * Idempotent, and therefore self-healing: whatever the event, the room ends up
+   * with exactly the timer its state calls for.
    */
-  #scheduleWake(room: Room, at: number, now: number) {
-    const wait = Math.max(0, at - now)
-    const type: RoomEvent['type'] = room.game?.round ? 'deadline' : 'resume'
+  #reconcileWake(room: Room, now: number) {
+    const wanted = pendingWake(room)
+    const pending = this.#timers.get(room.code)
 
-    const timer = setTimeout(() => {
-      this.#timers.delete(room.code)
-      try {
-        this.apply(room.code, { type } as RoomEvent)
-      } catch {
-        // The room may have closed or moved on in the meantime: moot.
-      }
-    }, wait)
+    if (!wanted) {
+      this.#cancelWake(room.code)
+      return
+    }
+    // Already waiting on that very instant: leave it alone.
+    if (pending && pending.at === wanted.at) return
+
+    this.#cancelWake(room.code)
+
+    const timer = setTimeout(
+      () => {
+        this.#timers.delete(room.code)
+        try {
+          this.apply(room.code, { type: wanted.event } as RoomEvent)
+        } catch {
+          // The room may have closed or moved on in the meantime: moot.
+        }
+      },
+      Math.max(0, wanted.at - now),
+    )
 
     // The process must not stay alive for a room timer.
     timer.unref?.()
-    this.#timers.set(room.code, timer)
+    this.#timers.set(room.code, { timer, at: wanted.at })
   }
 
   #cancelWake(code: string) {
-    const timer = this.#timers.get(code)
-    if (timer) {
-      clearTimeout(timer)
+    const pending = this.#timers.get(code)
+    if (pending) {
+      clearTimeout(pending.timer)
       this.#timers.delete(code)
     }
   }

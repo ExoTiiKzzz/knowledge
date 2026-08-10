@@ -13,6 +13,7 @@ import {
   clampElapsed,
   createRoom,
   expectedResponders,
+  pendingWake,
   pointsFor,
   reduce,
   standings,
@@ -694,5 +695,69 @@ describe('the view sent to the client', () => {
     expect(viewFor(room, 'p0').isHost).toBe(true)
     expect(viewFor(room, 'p1').isHost).toBe(false)
     expect(viewFor(room, 'p1').me).toBe('p1')
+  })
+})
+
+describe('the wake-up a room is waiting on', () => {
+  it('waits on nothing before a game starts', () => {
+    expect(pendingWake(roomWith(['Arthur']))).toBeNull()
+  })
+
+  it('waits on the deadline while a round is open', () => {
+    const room = reduce(roomWith(['Arthur', 'Marie']), { type: 'start', token: 'p0', seed: 1 }, 1000)
+      .room
+    expect(pendingWake(room)).toEqual({ at: room.game!.round!.deadlineAt, event: 'deadline' })
+  })
+
+  it('still waits on the deadline after an answer that leaves the round open', () => {
+    // The regression that hung a round: an answer emits only a broadcast, so an
+    // adapter cancelling its timer for lack of a `wake` effect would never fire
+    // the deadline, and the round would wait forever on the silent player.
+    let room = roomWith(['Arthur', 'Marie'])
+    room = reduce(room, { type: 'start', token: 'p0', seed: 1 }, 1000).room
+    const deadline = room.game!.round!.deadlineAt
+
+    room = reduce(
+      room,
+      { type: 'answer', token: 'p0', input: correctAnswer(room), claimedMs: 1000 },
+      2000,
+    ).room
+
+    expect(room.game!.round).not.toBeNull()
+    expect(pendingWake(room)).toEqual({ at: deadline, event: 'deadline' })
+  })
+
+  it('waits on the resume instant during the results pause', () => {
+    let room = roomWith(['Arthur'])
+    room = reduce(room, { type: 'start', token: 'p0', seed: 1 }, 1000).room
+    room = reduce(room, { type: 'deadline' }, 16_000).room
+    expect(pendingWake(room)).toEqual({ at: 16_000 + RESULTS_PAUSE, event: 'resume' })
+  })
+
+  it('keeps waiting on the resume instant when someone joins during the pause', () => {
+    // The other half of the same regression: a join during the pause emits only a
+    // broadcast, and must not strand the game between two rounds.
+    let room = roomWith(['Arthur'], settings({ roundCount: 3 }))
+    room = reduce(room, { type: 'start', token: 'p0', seed: 1 }, 1000).room
+    room = reduce(room, { type: 'deadline' }, 16_000).room
+    const resumeAt = room.game!.resumeAt!
+
+    room = reduce(room, { type: 'join', token: 'late', name: 'Marie' }, 17_000).room
+    expect(pendingWake(room)).toEqual({ at: resumeAt, event: 'resume' })
+  })
+
+  it('waits on nothing once the game is over', () => {
+    let room = roomWith(['Arthur'], settings({ roundCount: 1 }))
+    room = reduce(room, { type: 'start', token: 'p0', seed: 1 }, 1000).room
+    room = reduce(room, { type: 'deadline' }, 16_000).room
+    expect(room.game!.finished).toBe(true)
+    expect(pendingWake(room)).toBeNull()
+  })
+
+  it('matches the wake effect the reducer emits, whenever it emits one', () => {
+    const started = reduce(roomWith(['Arthur']), { type: 'start', token: 'p0', seed: 4 }, 1000)
+    const wake = started.effects.find((e) => e.type === 'wake')
+    expect(wake).toBeDefined()
+    expect(pendingWake(started.room)!.at).toBe((wake as { at: number }).at)
   })
 })

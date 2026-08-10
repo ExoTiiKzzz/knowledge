@@ -297,6 +297,23 @@ export function clampElapsed(claimedMs: number, openedAt: number, now: number): 
   return claimedMs
 }
 
+/**
+ * The wake-up a room is currently waiting on, derived from its state.
+ *
+ * The adapter reconciles its timer against this on every transition instead of
+ * trusting the `wake` effect alone. That distinction matters: an answer that does
+ * not close the round emits only a broadcast, so an adapter that cancelled the
+ * pending timer and waited for a new effect would destroy the deadline and hang
+ * the round forever, waiting on a player who never replies.
+ */
+export function pendingWake(room: Room): { at: number; event: 'deadline' | 'resume' } | null {
+  const game = room.game
+  if (!game || game.finished) return null
+  if (game.round) return { at: game.round.deadlineAt, event: 'deadline' }
+  if (game.resumeAt !== null) return { at: game.resumeAt, event: 'resume' }
+  return null
+}
+
 // ————————————————————————————————————————————————————————————————— reducer
 
 /**
