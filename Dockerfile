@@ -21,10 +21,10 @@ FROM base AS build
 ENV NODE_ENV=development
 COPY --from=deps /app/node_modules /app/node_modules
 COPY . .
-# `npm run build`, et non `node ace build` : depuis AdonisJS 7 le transpileur
-# TypeScript se charge par le drapeau `--import=@poppinss/ts-exec`, que porte le
-# script npm. Sans lui, Node cherche un `bin/console.js` qui n'existe pas encore.
-RUN npm run build
+# `ace.js` importe lui-même le transpileur TypeScript, donc la commande
+# conventionnelle suffit — y compris pour une plateforme qui génère son propre
+# Dockerfile et appelle `node ace build` sans passer par npm.
+RUN node ace build
 
 # ————————————————————————————————————— exécution
 FROM base AS production
