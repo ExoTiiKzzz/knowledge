@@ -131,7 +131,7 @@ Deux garde-fous, pour ne pas raconter n'importe quoi :
   ressemble à aucun d'eux.
 
 ```bash
-npm test          # 190 tests, dont la validation de tout le jeu de données
+npm test          # 211 tests, dont la validation de tout le jeu de données
 ```
 
 ## La carte

@@ -39,11 +39,40 @@ export const DEFAULT_SETTINGS: Settings = {
   roundDuration: 15_000,
 }
 
-/** How long the results of a round stay on screen before the next one. */
-export const RESULTS_PAUSE = 3_000
+/**
+ * How long the results of a round stay on screen.
+ *
+ * Long enough to read what everyone answered and, on a map round, to find each
+ * player's marker — which is the whole point of showing them.
+ */
+export const RESULTS_PAUSE = 5_000
 
 /** Beyond this, a room turns newcomers away. */
 export const MAX_PLAYERS = 8
+
+/**
+ * One colour per player, to tell their picks apart on the map.
+ *
+ * Red and green are absent: they mean wrong and right everywhere else in the
+ * product, and a player wearing them would be read as a verdict. Sky blue is
+ * absent too — it is the colour that highlights the country to find in the
+ * highlight mode.
+ *
+ * Exactly `MAX_PLAYERS` entries, so a full room never runs out. Colour alone
+ * never carries meaning: every list that shows a pick also names its player.
+ */
+export const PLAYER_COLOURS = [
+  'amber',
+  'violet',
+  'fuchsia',
+  'orange',
+  'indigo',
+  'pink',
+  'purple',
+  'yellow',
+] as const
+
+export type PlayerColour = (typeof PLAYER_COLOURS)[number]
 
 /** Points for an instant correct answer; decays down to `MIN_POINTS`. */
 export const MAX_POINTS = 1000
@@ -70,6 +99,8 @@ export type Player = {
   /** Opaque browser token. Identifies the player across connections. */
   token: string
   name: string
+  /** Their colour on the map. Kept for as long as they stay in the room. */
+  colour: PlayerColour
   /** When they entered the room, which settles who inherits the host role. */
   joinedAt: number
   connected: boolean
@@ -199,6 +230,18 @@ const normalizeName = (name: string) => name.trim().toLowerCase()
 
 function playerOf(room: Room, token: string): Player | undefined {
   return room.players.find((p) => p.token === token)
+}
+
+/**
+ * The first colour nobody in the room is wearing.
+ *
+ * A departure frees its colour for the next arrival, which keeps the palette from
+ * running out on a room people pass through. Falls back to the first colour if
+ * every one is taken, which `MAX_PLAYERS` makes unreachable.
+ */
+function freeColour(room: Room): PlayerColour {
+  const taken = new Set(room.players.map((p) => p.colour))
+  return PLAYER_COLOURS.find((colour) => !taken.has(colour)) ?? PLAYER_COLOURS[0]
 }
 
 /** The players an answer is expected from for the open round. */
@@ -367,6 +410,7 @@ function join(room: Room, token: string, name: string, now: number): Transition 
   const player: Player = {
     token,
     name: name.trim(),
+    colour: freeColour(room),
     joinedAt: now,
     connected: true,
     points: 0,
@@ -571,20 +615,20 @@ function closeRound(room: Room, now: number): Transition {
   ]
 
   const closed: Round = { ...round, answers }
-  const playedRounds = [...game.playedRounds, closed]
-  const wasLast = playedRounds.length >= game.questions.length
 
+  // The last round gets its results pause like any other: without it the podium
+  // would replace the final question at once, and nobody would ever see its
+  // answer — nor, on a map round, where the others aimed. The game then ends when
+  // that pause elapses, because `openRound` finds no further question.
   const after: Room = {
     ...room,
     game: {
       ...game,
       round: null,
-      playedRounds,
-      resumeAt: wasLast ? null : now + RESULTS_PAUSE,
+      playedRounds: [...game.playedRounds, closed],
+      resumeAt: now + RESULTS_PAUSE,
     },
   }
-
-  if (wasLast) return finish(after)
 
   return {
     room: after,
@@ -626,6 +670,7 @@ export function viewFor(room: Room, token: string) {
     players: room.players.map((p) => ({
       token: p.token,
       name: p.name,
+      colour: p.colour,
       connected: p.connected,
       points: p.points,
       isHost: room.host === p.token,
@@ -669,6 +714,12 @@ export function viewFor(room: Room, token: string) {
                     status: a.verdict.status,
                     points: a.points,
                     guess: a.guess ? { code: a.guess.country.code, name: a.guess.country.name } : null,
+                    // The country this player designated, right or wrong. A correct
+                    // answer has no `guess`, yet the pick is known: it is the
+                    // answer itself. `null` when they designated nothing at all.
+                    pick:
+                      a.guess?.country.code ??
+                      (a.verdict.status !== 'wrong' ? lastClosed.country.code : null),
                   })),
                 }
               : null,

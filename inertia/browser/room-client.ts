@@ -9,6 +9,8 @@ export type RoomView = {
   players: Array<{
     token: string
     name: string
+    /** Sa couleur sur la carte, issue de PLAYER_COLOURS. */
+    colour: string
     connected: boolean
     points: number
     isHost: boolean
@@ -46,6 +48,8 @@ export type RoomView = {
         status: 'exact' | 'close' | 'wrong'
         points: number
         guess: { code: string; name: string } | null
+        /** Le pays désigné, juste ou faux. `null` s'il n'a rien désigné. */
+        pick: string | null
       }>
     }
   }

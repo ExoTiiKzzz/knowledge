@@ -240,6 +240,9 @@ Une seule manche est ouverte à la fois pour tout le salon. Elle se clôt au pre
 événements : tous les joueurs présents ont répondu, ou l'échéance est atteinte. Suit une pause
 de résultats de durée fixe, puis la manche suivante. Un joueur déconnecté n'est pas attendu.
 
+**La dernière manche a sa pause elle aussi**, avant le podium : sans elle, on ne verrait jamais
+la réponse de la question finale ni, sur une manche carte, où les autres ont visé.
+
 ### Correction et score
 
 Le client transmet la **saisie brute** — le texte tapé, ou le code du pays cliqué. Le serveur
@@ -372,7 +375,7 @@ moteur. Les tester exigerait une application démarrée pour une valeur faible.
 | Point | Hypothèse |
 | --- | --- |
 | Durée d'une manche | 15 s par défaut, réglable par l'hôte |
-| Pause de résultats | 3 s |
+| Pause de résultats | 5 s, la dernière manche comprise |
 | Nombre de manches | 10 / 20 / 50 / tout le vivier, comme en solo |
 | Code de salon | 4 caractères, sans caractères ambigus |
 | Réponses par manche | une seule, définitive |

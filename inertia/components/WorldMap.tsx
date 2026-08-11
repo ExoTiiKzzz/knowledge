@@ -49,6 +49,9 @@ function parseViewBox(value: string): View {
 
 const WORLD = parseViewBox(MAP_VIEWBOX)
 
+/** Index des tracés par code pays, pour situer un repère sans reparcourir la carte. */
+const SHAPE_BY_CODE = new Map(MAP_SHAPES.filter((s) => s.code).map((s) => [s.code!, s]))
+
 /**
  * Le pays sous un point de l'écran, ou `null`.
  *
@@ -79,6 +82,32 @@ function clamp(view: View, base: View): View {
   return { x, y, w, h }
 }
 
+/**
+ * A player's pick, shown as a marker at the country's centre.
+ *
+ * A marker rather than a fill, because two players can designate the same
+ * country and fills cannot overlap. Colour never carries meaning on its own: the
+ * answer list beside the map names every player next to their colour.
+ */
+export type Pick = {
+  code: string
+  /** Tailwind colour family, from `PLAYER_COLOURS`. */
+  colour: string
+  name: string
+}
+
+/** Marker fills, one per colour of the player palette. */
+const PICK_FILLS: Record<string, string> = {
+  amber: 'fill-amber-500 stroke-amber-900 dark:stroke-amber-100',
+  violet: 'fill-violet-500 stroke-violet-900 dark:stroke-violet-100',
+  fuchsia: 'fill-fuchsia-500 stroke-fuchsia-900 dark:stroke-fuchsia-100',
+  orange: 'fill-orange-500 stroke-orange-900 dark:stroke-orange-100',
+  indigo: 'fill-indigo-500 stroke-indigo-900 dark:stroke-indigo-100',
+  pink: 'fill-pink-500 stroke-pink-900 dark:stroke-pink-100',
+  purple: 'fill-purple-500 stroke-purple-900 dark:stroke-purple-100',
+  yellow: 'fill-yellow-500 stroke-yellow-900 dark:stroke-yellow-100',
+}
+
 type WorldMapProps = {
   /** Continent sur lequel cadrer. `null` pour le monde entier. */
   scope: Scope
@@ -86,6 +115,8 @@ type WorldMapProps = {
   emphasis?: Record<string, Emphasis>
   /** Rend les pays cliquables. Reçoit le code ISO alpha-2. */
   onSelect?: (code: string) => void
+  /** Repères des choix des joueurs, affichés une fois la manche close. */
+  picks?: Pick[]
   /** Tout changement de cette valeur remet le zoom et le recentrage à zéro. */
   resetKey?: string
   className?: string
@@ -102,7 +133,14 @@ type WorldMapProps = {
  * dessinés en fond inerte : sans eux la carte serait trouée, mais les cliquer
  * n'aurait pas de sens.
  */
-export function WorldMap({ scope, emphasis = {}, onSelect, resetKey, className }: WorldMapProps) {
+export function WorldMap({
+  scope,
+  emphasis = {},
+  onSelect,
+  picks = [],
+  resetKey,
+  className,
+}: WorldMapProps) {
   // Mémoïsé : `base` alimente `zoomAt`, dont dépend l'attache du listener de
   // molette. Un nouvel objet à chaque rendu la ferait se détacher sans cesse.
   const base = useMemo(() => {
@@ -305,6 +343,8 @@ export function WorldMap({ scope, emphasis = {}, onSelect, resetKey, className }
             />
           )
         })}
+        {/* Repères des joueurs en dernier : ils doivent primer sur tout le reste. */}
+        <PickMarkers picks={picks} width={view.w} />
       </svg>
 
       <div className="absolute top-2 right-2 flex flex-col gap-1">
@@ -344,5 +384,54 @@ export function WorldMap({ scope, emphasis = {}, onSelect, resetKey, className }
         {zoom > 1.01 ? `Zoom ×${zoom.toFixed(1)} · glisse pour déplacer` : 'Molette ou pincement pour zoomer'}
       </p>
     </div>
+  )
+}
+
+/**
+ * Les choix des joueurs, un disque coloré au centre du pays désigné.
+ *
+ * Plusieurs joueurs peuvent désigner le même pays : les repères qui coïncident
+ * sont alors répartis sur un petit cercle autour du centre, de sorte qu'aucun
+ * n'en cache un autre. Le rayon suit le cadrage courant, pour rester lisible au
+ * zoom comme en vue monde.
+ */
+function PickMarkers({ picks, width }: { picks: Pick[]; width: number }) {
+  if (picks.length === 0) return null
+
+  const radius = width * 0.011
+  const byCountry = new Map<string, Pick[]>()
+  for (const pick of picks) {
+    byCountry.set(pick.code, [...(byCountry.get(pick.code) ?? []), pick])
+  }
+
+  return (
+    <>
+      {[...byCountry.entries()].flatMap(([code, sharing]) => {
+        const shape = SHAPE_BY_CODE.get(code)
+        if (!shape || shape.cx === undefined || shape.cy === undefined) return []
+
+        // Un seul choix reste au centre ; plusieurs s'écartent en étoile.
+        const spread = sharing.length > 1 ? radius * 1.5 : 0
+
+        return sharing.map((pick, index) => {
+          const angle = (index / sharing.length) * Math.PI * 2 - Math.PI / 2
+          return (
+            <circle
+              key={`${code}-${pick.colour}`}
+              data-pick={pick.colour}
+              cx={shape.cx! + Math.cos(angle) * spread}
+              cy={shape.cy! + Math.sin(angle) * spread}
+              r={radius}
+              vectorEffect="non-scaling-stroke"
+              strokeWidth={1.5}
+              pointerEvents="none"
+              className={PICK_FILLS[pick.colour] ?? 'fill-foreground stroke-background'}
+            >
+              <title>{pick.name}</title>
+            </circle>
+          )
+        })
+      })}
+    </>
   )
 }

@@ -7,6 +7,7 @@ import {
   MAX_POINTS,
   MIN_ELAPSED_MS,
   MIN_POINTS,
+  PLAYER_COLOURS,
   RESULTS_PAUSE,
   RejectionError,
   buildRounds,
@@ -435,10 +436,10 @@ describe('a full game', () => {
       ).room
 
       expect(room.game!.round).toBeNull()
-      if (number < 3) {
-        t = room.game!.resumeAt!
-        room = reduce(room, { type: 'resume' }, t).room
-      }
+      // Every round has a results pause, the last one included.
+      expect(room.game!.resumeAt).not.toBeNull()
+      t = room.game!.resumeAt!
+      room = reduce(room, { type: 'resume' }, t).room
     }
 
     expect(room.game!.finished).toBe(true)
@@ -456,10 +457,14 @@ describe('a full game', () => {
     let room = roomWith(['Arthur'], settings({ roundCount: 1 }))
     room = reduce(room, { type: 'start', token: 'p0', seed: 1 }, 1000).room
     room = reduce(room, { type: 'deadline' }, 16_000).room
+    // The results pause of the final round comes before the standings are filed.
+    expect(room.history).toHaveLength(0)
+    room = reduce(room, { type: 'resume' }, room.game!.resumeAt!).room
     expect(room.history).toHaveLength(1)
 
-    room = reduce(room, { type: 'start', token: 'p0', seed: 2 }, 20_000).room
-    room = reduce(room, { type: 'deadline' }, 40_000).room
+    room = reduce(room, { type: 'start', token: 'p0', seed: 2 }, 40_000).room
+    room = reduce(room, { type: 'deadline' }, 60_000).room
+    room = reduce(room, { type: 'resume' }, room.game!.resumeAt!).room
     expect(room.history).toHaveLength(2)
   })
 
@@ -473,6 +478,7 @@ describe('a full game', () => {
     ).room
     expect(room.players[0].points).toBeGreaterThan(0)
 
+    room = reduce(room, { type: 'resume' }, room.game!.resumeAt!).room
     room = reduce(room, { type: 'start', token: 'p0', seed: 2 }, 30_000).room
     expect(room.players[0].points).toBe(0)
   })
@@ -555,8 +561,9 @@ describe('joining mid-game', () => {
     room = reduce(room, { type: 'start', token: 'p0', seed: 8 }, 1000).room
     room = reduce(room, { type: 'join', token: 'late', name: 'Marie' }, 2000).room
     room = reduce(room, { type: 'deadline' }, 16_000).room
+    room = reduce(room, { type: 'resume' }, room.game!.resumeAt!).room
 
-    room = reduce(room, { type: 'start', token: 'p0', seed: 9 }, 20_000).room
+    room = reduce(room, { type: 'start', token: 'p0', seed: 9 }, 30_000).room
     expect(expectedResponders(room).map((p) => p.token).sort()).toEqual(['late', 'p0'])
     expect(standings(room).every((s) => !s.joinedMidGame)).toBe(true)
   })
@@ -746,10 +753,21 @@ describe('the wake-up a room is waiting on', () => {
     expect(pendingWake(room)).toEqual({ at: resumeAt, event: 'resume' })
   })
 
+  it('waits on the final results pause before ending the game', () => {
+    let room = roomWith(['Arthur'], settings({ roundCount: 1 }))
+    room = reduce(room, { type: 'start', token: 'p0', seed: 1 }, 1000).room
+    room = reduce(room, { type: 'deadline' }, 16_000).room
+
+    expect(room.game!.finished).toBe(false)
+    expect(pendingWake(room)).toEqual({ at: 16_000 + RESULTS_PAUSE, event: 'resume' })
+  })
+
   it('waits on nothing once the game is over', () => {
     let room = roomWith(['Arthur'], settings({ roundCount: 1 }))
     room = reduce(room, { type: 'start', token: 'p0', seed: 1 }, 1000).room
     room = reduce(room, { type: 'deadline' }, 16_000).room
+    room = reduce(room, { type: 'resume' }, room.game!.resumeAt!).room
+
     expect(room.game!.finished).toBe(true)
     expect(pendingWake(room)).toBeNull()
   })
@@ -759,5 +777,140 @@ describe('the wake-up a room is waiting on', () => {
     const wake = started.effects.find((e) => e.type === 'wake')
     expect(wake).toBeDefined()
     expect(pendingWake(started.room)!.at).toBe((wake as { at: number }).at)
+  })
+})
+
+describe('player colours on the map', () => {
+  it('gives every player a distinct colour', () => {
+    const room = roomWith(['Arthur', 'Marie', 'Léo', 'Zoé'])
+    const colours = room.players.map((p) => p.colour)
+    expect(new Set(colours).size).toBe(colours.length)
+  })
+
+  it('never dresses a player in red or green', () => {
+    // Those two mean wrong and right everywhere else: a player wearing them
+    // would be read as a verdict.
+    const room = roomWith(Array.from({ length: MAX_PLAYERS }, (_, i) => `Player ${i}`))
+    for (const player of room.players) {
+      expect(player.colour).not.toMatch(/red|green|emerald|rose|lime/)
+    }
+  })
+
+  it('has enough colours for a full room', () => {
+    expect(PLAYER_COLOURS.length).toBeGreaterThanOrEqual(MAX_PLAYERS)
+    const room = roomWith(Array.from({ length: MAX_PLAYERS }, (_, i) => `Player ${i}`))
+    expect(new Set(room.players.map((p) => p.colour)).size).toBe(MAX_PLAYERS)
+  })
+
+  it('keeps a colour across a refresh', () => {
+    let room = roomWith(['Arthur', 'Marie'])
+    const before = room.players[1].colour
+    room = reduce(room, { type: 'disconnect', token: 'p1' }, 3000).room
+    room = reduce(room, { type: 'join', token: 'p1', name: 'Marie' }, 4000).room
+    expect(room.players[1].colour).toBe(before)
+  })
+
+  it('frees a colour when its player leaves', () => {
+    let room = roomWith(['Arthur', 'Marie'])
+    const freed = room.players[1].colour
+    room = reduce(room, { type: 'leave', token: 'p1' }, 5000).room
+    room = reduce(room, { type: 'join', token: 'p9', name: 'Zoé' }, 6000).room
+    expect(room.players.find((p) => p.token === 'p9')!.colour).toBe(freed)
+  })
+
+  it('exposes the colour in the view', () => {
+    const view = viewFor(roomWith(['Arthur', 'Marie']), 'p0')
+    expect(view.players.every((p) => PLAYER_COLOURS.includes(p.colour))).toBe(true)
+  })
+})
+
+describe('the country each player designated', () => {
+  const mapSettings = settings({ modes: ['mapFind'], roundCount: 1 })
+
+  it('reports the clicked country for a wrong answer', () => {
+    let room = roomWith(['Arthur'], mapSettings)
+    room = reduce(room, { type: 'start', token: 'p0', seed: 12 }, 1000).room
+    const right = room.game!.round!.country.code
+    const other = COUNTRIES.find((c) => c.code !== right && isMapped(c))!.code
+
+    room = reduce(room, { type: 'answer', token: 'p0', input: other, claimedMs: 1000 }, 2000).room
+    expect(viewFor(room, 'p0').game!.result!.answers[0].pick).toBe(other)
+  })
+
+  it('reports the right country for a correct answer, which carries no guess', () => {
+    let room = roomWith(['Arthur'], mapSettings)
+    room = reduce(room, { type: 'start', token: 'p0', seed: 12 }, 1000).room
+    const right = room.game!.round!.country.code
+
+    room = reduce(room, { type: 'answer', token: 'p0', input: right, claimedMs: 1000 }, 2000).room
+    const answer = viewFor(room, 'p0').game!.result!.answers[0]
+    expect(answer.guess).toBeNull()
+    expect(answer.pick).toBe(right)
+  })
+
+  it('reports nothing for a player who designated nothing', () => {
+    let room = roomWith(['Arthur', 'Marie'], mapSettings)
+    room = reduce(room, { type: 'start', token: 'p0', seed: 12 }, 1000).room
+    room = reduce(room, { type: 'deadline' }, 20_000).room
+
+    const answers = viewFor(room, 'p0').game!.result!.answers
+    expect(answers.every((a) => a.pick === null)).toBe(true)
+  })
+
+  it('reports the same country for two players who picked it', () => {
+    let room = roomWith(['Arthur', 'Marie'], mapSettings)
+    room = reduce(room, { type: 'start', token: 'p0', seed: 12 }, 1000).room
+    const right = room.game!.round!.country.code
+    const same = COUNTRIES.find((c) => c.code !== right && isMapped(c))!.code
+
+    room = reduce(room, { type: 'answer', token: 'p0', input: same, claimedMs: 1000 }, 2000).room
+    room = reduce(room, { type: 'answer', token: 'p1', input: same, claimedMs: 1500 }, 2500).room
+
+    const picks = viewFor(room, 'p0').game!.result!.answers.map((a) => a.pick)
+    expect(picks).toEqual([same, same])
+  })
+})
+
+describe('the results pause of the final round', () => {
+  it('shows the last round’s results before the podium', () => {
+    let room = roomWith(['Arthur', 'Marie'], settings({ roundCount: 1 }))
+    room = reduce(room, { type: 'start', token: 'p0', seed: 5 }, 1000).room
+    const expected = room.game!.round!.accepted[0]
+    room = reduce(room, { type: 'answer', token: 'p0', input: expected, claimedMs: 1000 }, 2000).room
+    room = reduce(room, { type: 'answer', token: 'p1', input: 'nonsense', claimedMs: 1500 }, 2500)
+      .room
+
+    // Still in the game, paused on results — not yet on the podium.
+    const view = viewFor(room, 'p0')
+    expect(view.game!.finished).toBe(false)
+    expect(view.game!.paused).toBe(true)
+    expect(view.game!.result!.expected).toBe(expected)
+    expect(view.game!.result!.answers).toHaveLength(2)
+  })
+
+  it('ends the game when that pause elapses', () => {
+    let room = roomWith(['Arthur'], settings({ roundCount: 1 }))
+    room = reduce(room, { type: 'start', token: 'p0', seed: 5 }, 1000).room
+    room = reduce(room, { type: 'deadline' }, 16_000).room
+    room = reduce(room, { type: 'resume' }, room.game!.resumeAt!).room
+
+    expect(room.game!.finished).toBe(true)
+    expect(room.history).toHaveLength(1)
+    expect(viewFor(room, 'p0').game!.paused).toBe(false)
+  })
+
+  it('lasts as long as any other pause', () => {
+    let room = roomWith(['Arthur'], settings({ roundCount: 2 }))
+    room = reduce(room, { type: 'start', token: 'p0', seed: 5 }, 1000).room
+    room = reduce(room, { type: 'deadline' }, 16_000).room
+    const afterFirst = room.game!.resumeAt! - 16_000
+
+    room = reduce(room, { type: 'resume' }, room.game!.resumeAt!).room
+    const opened = room.game!.round!.openedAt
+    room = reduce(room, { type: 'deadline' }, opened + 15_000).room
+    const afterLast = room.game!.resumeAt! - (opened + 15_000)
+
+    expect(afterLast).toBe(afterFirst)
+    expect(afterLast).toBe(RESULTS_PAUSE)
   })
 })

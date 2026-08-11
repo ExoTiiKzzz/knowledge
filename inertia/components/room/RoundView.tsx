@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { Flag } from '@/components/Flag'
-import { WorldMap, type Emphasis } from '@/components/WorldMap'
+import { WorldMap, type Emphasis, type Pick } from '@/components/WorldMap'
 import { cn } from '@/lib/utils'
 import { MODES, countryByCode, type Mode, type Scope } from '@/lib/quiz'
 import type { RoomView } from '@/browser/room-client'
@@ -210,10 +210,26 @@ function Result({ view, scope }: { view: RoomView; scope: Scope }) {
   const emphasis: Record<string, Emphasis> = { [result.code]: 'correct' }
   if (mine?.guess) emphasis[mine.guess.code] = 'wrong'
 
+  // Le pays désigné par chacun, dans sa couleur. Le bon pays reste vert dessous :
+  // les repères disent qui a visé quoi, le remplissage dit où était la réponse.
+  const colours = new Map(view.players.map((p) => [p.token, p.colour]))
+  const picks: Pick[] = result.answers
+    .filter((answer) => answer.pick)
+    .map((answer) => ({
+      code: answer.pick!,
+      colour: colours.get(answer.token) ?? 'amber',
+      name: names.get(answer.token) ?? '—',
+    }))
+
   return (
     <div className="space-y-4">
       {MODES[mode].needsMap ? (
-        <WorldMap scope={scope} emphasis={emphasis} resetKey={`result-${result.number}`} />
+        <WorldMap
+          scope={scope}
+          emphasis={emphasis}
+          picks={picks}
+          resetKey={`result-${result.number}`}
+        />
       ) : (
         <div className="flex items-end justify-center gap-6 py-2">
           <Target code={result.code} fallbackName={result.expected} caption="la réponse" correct />
@@ -230,6 +246,9 @@ function Result({ view, scope }: { view: RoomView; scope: Scope }) {
       <ul className="divide-y rounded-lg border text-sm">
         {result.answers.map((answer) => (
           <li key={answer.token} className="flex items-center gap-3 px-3 py-2">
+            {MODES[mode].needsMap && (
+              <PlayerDot colour={colours.get(answer.token) ?? 'amber'} />
+            )}
             <span className="min-w-0 flex-1 truncate">{names.get(answer.token) ?? '—'}</span>
             <span
               className={cn(
@@ -284,5 +303,32 @@ function Target({
         <p className="text-xs text-muted-foreground">{caption}</p>
       </div>
     </div>
+  )
+}
+
+/** Pastilles des couleurs de joueur, alignées sur celles des repères de la carte. */
+const DOT_COLOURS: Record<string, string> = {
+  amber: 'bg-amber-500',
+  violet: 'bg-violet-500',
+  fuchsia: 'bg-fuchsia-500',
+  orange: 'bg-orange-500',
+  indigo: 'bg-indigo-500',
+  pink: 'bg-pink-500',
+  purple: 'bg-purple-500',
+  yellow: 'bg-yellow-500',
+}
+
+/**
+ * Relie un joueur à son repère sur la carte.
+ *
+ * Sans elle, la couleur serait la seule façon de savoir qui a visé quoi — ce qui
+ * exclurait quiconque distingue mal deux teintes. Le nom reste juste à côté.
+ */
+function PlayerDot({ colour }: { colour: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cn('size-2.5 shrink-0 rounded-full', DOT_COLOURS[colour] ?? 'bg-foreground')}
+    />
   )
 }
