@@ -289,6 +289,27 @@ export function WorldMap({
         // déplacer la carte, et le pincement zoomerait le navigateur.
         className="w-full touch-none select-none"
       >
+        {/*
+          L'eau, sous tout le reste.
+          Le rectangle dépasse largement le tracé mondial : le déplacement est
+          borné à l'intérieur de celui-ci, mais `preserveAspectRatio` laisse des
+          bandes hors cadrage quand le conteneur n'a pas le ratio du repère, et
+          ces bandes doivent être peintes elles aussi — sans quoi la mer
+          s'arrêterait net au bord de la carte.
+        */}
+        <rect
+          x={-WORLD.w}
+          y={-WORLD.h}
+          width={WORLD.w * 3}
+          height={WORLD.h * 3}
+          // Bleu plus soutenu que le premier essai : en `sky-100`/`sky-950`,
+          // l'écart de luminosité avec les terres tombait à 1,09 en thème sombre,
+          // et la mer ne se distinguait plus que par sa teinte — invisible pour
+          // qui perçoit mal les couleurs. Le tracé des frontières (3,3:1) porte
+          // de toute façon la structure ; ce fond ne fait que situer l'eau.
+          className="fill-sky-200 dark:fill-sky-900"
+        />
+
         {MAP_SHAPES.map((shape, index) => {
           const highlight = shape.code ? emphasis[shape.code] : undefined
           const clickable = Boolean(onSelect && shape.code)

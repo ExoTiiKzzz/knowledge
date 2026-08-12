@@ -38,11 +38,11 @@ Le **serveur est seul juge** : le client envoie la saisie brute, le serveur corr
 la correction du solo, tient l'horloge et clôt les manches. Le client n'applique aucune règle — il
 affiche la vue qu'on lui pousse.
 
-- **Moteur** — [shared/lib/salon.ts](shared/lib/salon.ts), réducteur pur
+- **Moteur** — [shared/lib/room.ts](shared/lib/room.ts), réducteur pur
   `(état, événement, maintenant) → { état, effets }`. Ni horloge, ni aléatoire, ni réseau : c'est
-  ce qui rend les 56 tests de [salon.test.ts](shared/lib/salon.test.ts) possibles sans démarrer
+  ce qui rend les 74 tests de [room.test.ts](shared/lib/room.test.ts) possibles sans démarrer
   l'application ni attendre un délai réel.
-- **Adaptateur** — `app/salons/registry.ts` exécute les effets : diffuser l'état à chaque joueur,
+- **Adaptateur** — `app/rooms/registry.ts` exécute les effets : diffuser l'état à chaque joueur,
   et programmer le réveil qui clôt une manche à son échéance.
 - **Transport** — événements serveur (SSE) du serveur vers les clients, un POST par réponse. Le
   trafic est asymétrique : un seul message client→serveur par manche.
@@ -50,13 +50,13 @@ affiche la vue qu'on lui pousse.
 Trois points d'implémentation à connaître :
 
 - Le client SSE est **écrit à la main** (une trentaine de lignes dans
-  `inertia/navigateur/salon-client.ts`). `@adonisjs/transmit-client` 1.1.0, dernière version
+  `inertia/browser/room-client.ts`). `@adonisjs/transmit-client` 1.1.0, dernière version
   publiée, ouvre le flux sans le `uid` que le serveur en 3.x exige — la requête part en 500.
-- **`/api/salons` et `/__transmit` sont exemptés de CSRF**, et ce n'est pas un relâchement :
+- **`/api/rooms` et `/__transmit` sont exemptés de CSRF**, et ce n'est pas un relâchement :
   l'autorité est le jeton du joueur transmis dans le corps de la requête, qu'un site tiers ne peut
   pas connaître. Aucun cookie ne porte de privilège.
 - Ne pas attendre l'événement `open` du flux pour s'abonner : Adonis n'émet les en-têtes qu'au
-  premier message, donc `open` n'arriverait jamais — l'abonnement doit partir aussitôt.
+  premier message, donc `open` n'arriverait jamais — l'abonnement part aussitôt et se réessaie.
 
 Deux joueurs ne peuvent pas partager un même profil de navigateur : le jeton vit dans le stockage
 local, qui est par origine.
@@ -74,7 +74,10 @@ Chaque mode se restreint à un continent (Afrique, Amérique du Nord, Amérique 
 Europe, Océanie) ou couvre le monde entier, sur 10, 20, 50 questions ou la totalité du
 périmètre. Le meilleur score est conservé par couple mode + continent dans `localStorage`.
 
-Les modes au clavier s'enchaînent sans la souris : Entrée valide, Entrée passe à la suite.
+En solo, la série s'enchaîne sans la souris : Entrée valide, puis **Entrée ou Espace** passe à la
+question suivante — y compris dans les modes carte, où l'on répond à la souris mais où l'on
+enchaîne au clavier. Pendant la saisie, Espace reste un espace : les réponses en contiennent
+(« Corée du Sud »).
 
 ## Correction tolérante
 

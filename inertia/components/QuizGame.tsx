@@ -44,6 +44,33 @@ export function QuizGame({ mode, scope, questions, onFinish, onQuit }: QuizGameP
   const correctCount = answers.filter((a) => a.verdict.status !== 'wrong').length
   const isLast = index + 1 >= questions.length
 
+  // `next` change à chaque rendu ; le raccourci lit toujours la dernière version.
+  const advance = useRef(next)
+  advance.current = next
+
+  /**
+   * Once answered, Space or Enter moves on to the next question.
+   *
+   * Bound to the document rather than the input, so it works in the map modes too
+   * — they have no field to focus. Only while a verdict is showing: during typing
+   * a space is just a space, and country names have plenty of them.
+   */
+  useEffect(() => {
+    if (!verdict) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== ' ' && event.code !== 'Space' && event.key !== 'Enter') return
+      // A focused button already reacts to both keys: don't advance twice.
+      if (document.activeElement instanceof HTMLButtonElement) return
+      // Space would otherwise scroll the page.
+      event.preventDefault()
+      advance.current()
+    }
+
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [verdict])
+
   // Le champ reprend le focus à chaque question, y compris après validation :
   // la série s'enchaîne entièrement au clavier.
   useEffect(() => {
@@ -139,9 +166,11 @@ export function QuizGame({ mode, scope, questions, onFinish, onQuit }: QuizGameP
                 // formulaire : on traite Entrée nous-mêmes pour que la série
                 // s'enchaîne au clavier même une fois la réponse figée.
                 onKeyDown={(event) => {
+                  // Entrée valide la saisie. Une fois répondu, c'est le raccourci
+                  // global qui prend la main, ici comme en mode carte.
                   if (event.key !== 'Enter') return
                   event.preventDefault()
-                  submitText()
+                  if (!verdict) submitText()
                 }}
                 readOnly={verdict !== null}
                 placeholder={mode === 'capitals' ? 'Nom de la capitale…' : 'Nom du pays…'}
