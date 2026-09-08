@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { COUNTRIES } from '../data/countries.ts'
-import { isMapped } from './quiz.ts'
+import { countryByCode, isMapped } from './quiz.ts'
 import { randomFrom } from './random.ts'
 import {
   MAX_PLAYERS,
@@ -677,24 +677,38 @@ describe('the view sent to the client', () => {
     expect(view.game!.result!.answers[0].input).toBe('nonsense')
   })
 
-  it('withholds the country name when the name is what to find', () => {
+  it('withholds the label when the country name is what to find', () => {
     const room = reduce(
       roomWith(['Arthur'], settings({ modes: ['flags'], roundCount: 1 })),
       { type: 'start', token: 'p0', seed: 3 },
       1000,
     ).room
     const view = viewFor(room, 'p0')
-    expect(view.game!.round!.name).toBeNull()
+    expect(view.game!.round!.label).toBeNull()
     expect(view.game!.round!.code).toBeTruthy()
   })
 
-  it('sends the country name when the location is what to find', () => {
+  it('labels the round with the country name when the location is what to find', () => {
     const room = reduce(
       roomWith(['Arthur'], settings({ modes: ['mapFind'], roundCount: 1 })),
       { type: 'start', token: 'p0', seed: 3 },
       1000,
     ).room
-    expect(viewFor(room, 'p0').game!.round!.name).toBeTruthy()
+    const view = viewFor(room, 'p0')
+    expect(view.game!.round!.label).toBe(countryByCode(view.game!.round!.code)!.name)
+  })
+
+  it('labels the round with the capital in the reverse capitals mode', () => {
+    const room = reduce(
+      roomWith(['Arthur'], settings({ modes: ['countryFromCapital'], roundCount: 1 })),
+      { type: 'start', token: 'p0', seed: 3 },
+      1000,
+    ).room
+    const view = viewFor(room, 'p0')
+    const country = countryByCode(view.game!.round!.code)!
+    expect(view.game!.round!.label).toBe(country.capital)
+    // The country name would be the answer, so it never travels as the label.
+    expect(view.game!.round!.label).not.toBe(country.name)
   })
 
   it('points out the host and the current player', () => {

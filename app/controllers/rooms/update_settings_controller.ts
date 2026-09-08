@@ -1,9 +1,11 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { applyAndRespond } from '../../rooms/http.ts'
 import type { Settings } from '../../../shared/lib/room.ts'
-import type { Mode } from '../../../shared/lib/quiz.ts'
+import { MODES, type Mode } from '../../../shared/lib/quiz.ts'
 
-const VALID_MODES: Mode[] = ['flags', 'capitals', 'mapFind', 'mapName']
+// Derived rather than listed: a new mode is playable in a room the moment it
+// exists, without a second place to remember to update.
+const VALID_MODES = Object.keys(MODES) as Mode[]
 
 /**
  * Changes the room settings. Host only, and only outside a game.

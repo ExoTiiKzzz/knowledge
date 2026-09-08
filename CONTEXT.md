@@ -32,11 +32,18 @@ _Avoid_: item, épreuve
 _Dans le code_ : `Question`
 
 **Mode**:
-La nature de ce qui est demandé et de la façon d'y répondre. Il y en a quatre : drapeaux,
-capitales, placer sur la carte, pays en surbrillance. Une partie multijoueur peut en combiner
-plusieurs ; chaque manche n'en relève que d'un.
+La nature de ce qui est demandé et de la façon d'y répondre. Il y en a cinq : drapeaux,
+capitales, capitales inversées, placer sur la carte, pays en surbrillance. Une partie
+multijoueur peut en combiner plusieurs ; chaque manche n'en relève que d'un.
 _Avoid_: type de jeu, catégorie
 _Dans le code_ : `Mode`
+
+**Énoncé**:
+Ce que la question dit en clair, à côté de ce qu'elle montre : le nom du pays en mode
+Capitales, sa capitale dans le mode inverse, rien du tout quand l'image porte la question
+et que le nom serait la réponse.
+_Avoid_: titre, libellé de la question
+_Dans le code_ : `questionLabel`, `round.label`
 
 **Périmètre**:
 La région du monde à laquelle une partie se restreint — un continent, ou le monde entier.
@@ -52,7 +59,8 @@ _Dans le code_ : `pool`
 
 **Pays tracé**:
 Un pays dont la carte dessine le contour, et qui peut donc être surligné ou cliqué. Les
-autres — vingt-neuf micro-États insulaires — restent jouables en drapeaux et en capitales.
+autres — vingt-neuf micro-États insulaires — restent jouables en drapeaux et en capitales,
+dans les deux sens.
 _Avoid_: pays jouable, pays supporté
 _Dans le code_ : `isMapped`
 

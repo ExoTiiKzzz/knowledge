@@ -76,6 +76,12 @@ export function QuizResults({
   )
 }
 
+function context(answer: Answered, mode: Mode): string {
+  if (mode === 'capitals') return answer.country.name
+  if (mode === 'countryFromCapital') return answer.country.capital
+  return answer.country.continent
+}
+
 function AnswerRow({ answer, mode }: { answer: Answered; mode: Mode }) {
   const wrong = answer.verdict.status === 'wrong'
   const expected = expectedFor(answer.country, mode)
@@ -84,13 +90,12 @@ function AnswerRow({ answer, mode }: { answer: Answered; mode: Mode }) {
     <div className="flex items-center gap-3 px-4 py-2.5">
       <Flag code={answer.country.code} />
       <div className="min-w-0 flex-1">
-        {/* La réponse attendue en tête ; en dessous, ce qui la situe. Hors mode
-            Capitales, `expected` est déjà le nom du pays : le répéter en
-            sous-titre n'apprendrait rien, le continent si. */}
+        {/* La réponse attendue en tête ; en dessous, ce qui la situe. Les deux
+            modes de la paire pays/capitale donnent l'autre moitié. Ailleurs
+            `expected` est déjà le nom du pays : le répéter en sous-titre
+            n'apprendrait rien, le continent si. */}
         <p className="truncate text-sm font-medium">{expected}</p>
-        <p className="truncate text-xs text-muted-foreground">
-          {mode === 'capitals' ? answer.country.name : answer.country.continent}
-        </p>
+        <p className="truncate text-xs text-muted-foreground">{context(answer, mode)}</p>
       </div>
 
       {wrong ? (

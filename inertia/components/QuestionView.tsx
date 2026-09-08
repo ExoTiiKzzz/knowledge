@@ -152,6 +152,31 @@ export function Prompt({
     )
   }
 
+  if (mode === 'countryFromCapital') {
+    // Aucun drapeau tant qu'on n'a pas répondu : il donnerait le pays. Une fois
+    // répondu il devient au contraire l'essentiel — la même mise en regard qu'en
+    // mode Drapeaux, puisque la réponse est un pays.
+    if (guess) return <FlagComparison question={question} guess={guess} />
+    if (verdict) {
+      return (
+        <div className="mx-auto w-1/2 max-w-56">
+          <FlagAnswer
+            code={question.country.code}
+            name={question.country.name}
+            caption="la réponse"
+            correct
+          />
+        </div>
+      )
+    }
+    return (
+      <div className="flex flex-col items-center gap-3 py-2 text-center">
+        <p className="text-2xl font-semibold">{question.country.capital}</p>
+        <p className="text-sm text-muted-foreground">{MODES.countryFromCapital.prompt}</p>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col items-center gap-3 py-2 text-center">
       <Flag code={question.country.code} className="h-10" />

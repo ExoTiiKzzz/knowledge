@@ -61,14 +61,18 @@ Trois points d'implémentation à connaître :
 Deux joueurs ne peuvent pas partager un même profil de navigateur : le jeton vit dans le stockage
 local, qui est par origine.
 
-## Quatre modes
+## Cinq modes
 
 | Mode | Question | Réponse |
 | --- | --- | --- |
 | **Drapeaux** | un drapeau | le nom du pays, au clavier |
 | **Capitales** | un pays (nom + drapeau) | sa capitale, au clavier |
+| **Capitales inversées** | une capitale, seule | le pays, au clavier |
 | **Placer sur la carte** | un nom de pays | un clic sur la carte |
 | **Pays en surbrillance** | un pays surligné sur la carte | son nom, au clavier |
+
+Les deux modes Capitales forment une paire autour de la même donnée, dans les deux sens.
+Le mode inversé n'affiche aucun drapeau avant la réponse — il donnerait le pays.
 
 Chaque mode se restreint à un continent (Afrique, Amérique du Nord, Amérique du Sud, Asie,
 Europe, Océanie) ou couvre le monde entier, sur 10, 20, 50 questions ou la totalité du
@@ -98,9 +102,9 @@ La réponse est saisie librement, et une orthographe approchante est acceptée
 ### Raccourcis acceptés
 
 - **Codes ISO** alpha-2 et alpha-3, ajoutés automatiquement pour les 194 pays :
-  `us`, `usa`, `gb`, `gbr`, `nz`, `png`, `deu`… (mode Drapeaux uniquement — un code désigne
-  le pays, pas sa capitale). Seuls `DE` et `LA` restent inertes : ce sont aussi des articles
-  français, que la normalisation retire.
+  `us`, `usa`, `gb`, `gbr`, `nz`, `png`, `deu`… (dans les modes qui demandent le pays — un
+  code désigne le pays, pas sa capitale). Seuls `DE` et `LA` restent inertes : ce sont aussi
+  des articles français, que la normalisation retire.
 - **Abréviations d'usage** déclarées à la main : `RDC`, `RCA`, `EAU`/`UAE`, `UK`,
   `Angleterre`, `Hollande`, `Myanmar`, `Swaziland`, `Zaïre`, `Türkiye`…
 - **Exonymes de capitales** : `Beijing`/`Pékin`, `Kyiv`/`Kiev`, `Le Cap`, `Delhi`,
@@ -122,6 +126,11 @@ de pays identifié, le grand drapeau seul reste en place.
 En **mode Capitales**, la question n'est pas un drapeau : le retour cite la capitale
 reconnue et le pays qu'elle dessert, drapeau à la même taille que celui de la question —
 `vienne` pour la Suisse donne « **Vienne** est la capitale de : 🇦🇹 Autriche ».
+
+En **mode Capitales inversées**, la réponse est un pays : les deux drapeaux se mettent en
+regard comme en mode Drapeaux — `papouasie nouvelle guinee` pour Suva affiche 🇫🇯 *Fidji ·
+la réponse* et 🇵🇬 *Papouasie-Nouvelle-Guinée · ta réponse*. Sans pays identifié, le drapeau
+attendu apparaît seul : c'est la première fois qu'on le voit dans ce mode.
 
 Le récapitulatif final reprend le drapeau identifié à côté de chaque réponse barrée.
 

@@ -1,4 +1,4 @@
-import { Building2, Flag as FlagIcon, Globe, MapPin, Play } from 'lucide-react'
+import { Building2, Flag as FlagIcon, Globe, Landmark, MapPin, Play } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -28,6 +28,7 @@ type QuizSetupProps = {
 const MODE_ICONS: Record<Mode, typeof FlagIcon> = {
   flags: FlagIcon,
   capitals: Building2,
+  countryFromCapital: Landmark,
   mapFind: MapPin,
   mapName: Globe,
 }

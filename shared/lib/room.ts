@@ -9,6 +9,7 @@ import {
   gradeAnswer,
   gradeClick,
   identify,
+  questionLabel,
   type Guess,
   type Mode,
   type Question,
@@ -691,13 +692,11 @@ export function viewFor(room: Room, token: string) {
                 mode: round.mode,
                 // Just enough to ask the question. The code is needed everywhere:
                 // it renders the flag, highlights the map, and the client owns
-                // the dataset anyway (ADR-0002). The name only goes out when the
-                // mode is the one asking about a location.
+                // the dataset anyway (ADR-0002). The label is what the question
+                // states in words — the country, its capital, or nothing when the
+                // mode shows an image whose name is the answer.
                 code: round.country.code,
-                name:
-                  MODES[round.mode].answer === 'click' || round.mode === 'capitals'
-                    ? round.country.name
-                    : null,
+                label: questionLabel(round.country, round.mode),
                 deadlineAt: round.deadlineAt,
               }
             : null,

@@ -34,7 +34,8 @@ export type RoomView = {
       number: number
       mode: string
       code: string
-      name: string | null
+      /** Ce que la question énonce en clair, `null` quand elle ne montre qu'une image. */
+      label: string | null
       deadlineAt: number
     }
     result: null | {

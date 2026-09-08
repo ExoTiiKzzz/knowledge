@@ -4,13 +4,19 @@ import { checkAnswer, closestMatch, withinTolerance, type Verdict } from './answ
 import { shuffle, type Random } from './random.ts'
 
 /** Ce que le quiz demande de deviner. */
-export type Mode = 'flags' | 'capitals' | 'mapFind' | 'mapName'
+export type Mode = 'flags' | 'capitals' | 'countryFromCapital' | 'mapFind' | 'mapName'
 
 type ModeSpec = {
   label: string
   description: string
   /** Consigne affichée sous la question. */
   prompt: string
+  /**
+   * Ce qu'il faut produire. Deux modes forment une paire autour de la même
+   * donnée : Capitales part du pays pour demander la capitale, le mode inverse
+   * part de la capitale pour demander le pays.
+   */
+  asks: 'country' | 'capital'
   /** Comment on répond : au clavier, ou en cliquant la carte. */
   answer: 'text' | 'click'
   /** Le mode a-t-il besoin de la géométrie de la carte ? */
@@ -22,6 +28,7 @@ export const MODES: Record<Mode, ModeSpec> = {
     label: 'Drapeaux',
     description: 'On te montre un drapeau, tu écris le pays.',
     prompt: 'Quel est ce pays ?',
+    asks: 'country',
     answer: 'text',
     needsMap: false,
   },
@@ -29,6 +36,15 @@ export const MODES: Record<Mode, ModeSpec> = {
     label: 'Capitales',
     description: 'On te donne un pays, tu écris sa capitale.',
     prompt: 'Quelle est sa capitale ?',
+    asks: 'capital',
+    answer: 'text',
+    needsMap: false,
+  },
+  countryFromCapital: {
+    label: 'Capitales inversées',
+    description: 'On te donne une capitale, tu écris le pays.',
+    prompt: 'De quel pays est-ce la capitale ?',
+    asks: 'country',
     answer: 'text',
     needsMap: false,
   },
@@ -36,6 +52,7 @@ export const MODES: Record<Mode, ModeSpec> = {
     label: 'Placer sur la carte',
     description: 'On te donne un pays, tu le cliques sur la carte.',
     prompt: 'Clique ce pays sur la carte',
+    asks: 'country',
     answer: 'click',
     needsMap: true,
   },
@@ -43,6 +60,7 @@ export const MODES: Record<Mode, ModeSpec> = {
     label: 'Pays en surbrillance',
     description: 'On surligne un pays sur la carte, tu écris son nom.',
     prompt: 'Quel est le pays en surbrillance ?',
+    asks: 'country',
     answer: 'text',
     needsMap: true,
   },
@@ -76,9 +94,26 @@ export type Answered = Question & {
   guess: Guess | null
 }
 
-/** Le mode porte-t-il sur la capitale plutôt que sur le pays lui-même ? */
+/** Le mode demande-t-il la capitale plutôt que le pays lui-même ? */
 function asksCapital(mode: Mode): boolean {
-  return mode === 'capitals'
+  return MODES[mode].asks === 'capital'
+}
+
+/**
+ * Ce que la question énonce en clair, ou `null` quand elle ne montre qu'une
+ * image — drapeau ou surbrillance — dont le nom serait justement la réponse.
+ */
+export function questionLabel(country: Country, mode: Mode): string | null {
+  switch (mode) {
+    case 'capitals':
+    case 'mapFind':
+      return country.name
+    case 'countryFromCapital':
+      return country.capital
+    case 'flags':
+    case 'mapName':
+      return null
+  }
 }
 
 export function acceptedFor(country: Country, mode: Mode): string[] {

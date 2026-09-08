@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { COUNTRIES } from '../data/countries.ts'
 import { normalize } from './answer.ts'
-import { acceptedFor, expectedFor, gradeAnswer, identify, type Mode } from './quiz.ts'
+import {
+  acceptedFor,
+  expectedFor,
+  gradeAnswer,
+  identify,
+  questionLabel,
+  type Mode,
+} from './quiz.ts'
 
 const byName = new Map(COUNTRIES.map((c) => [c.name, c]))
 
@@ -152,6 +159,43 @@ describe('réponses refusées', () => {
     ['Suisse', 'vienne'],
   ])('capitale de %s refuse « %s »', (name, input) => {
     expect(grade(name, input, 'capitals')).toBe('wrong')
+  })
+})
+
+describe('mode capitales inversées', () => {
+  const MODE: Mode = 'countryFromCapital'
+
+  it('énonce la capitale et attend le pays', () => {
+    for (const c of COUNTRIES) {
+      expect(questionLabel(c, MODE), c.name).toBe(c.capital)
+      expect(expectedFor(c, MODE), c.name).toBe(c.name)
+    }
+  })
+
+  it('accepte le nom du pays, ses alias et ses codes', () => {
+    for (const c of COUNTRIES) {
+      expect(grade(c.name, c.name, MODE), c.name).toBe('exact')
+      for (const alias of c.nameAliases) {
+        expect(grade(c.name, alias, MODE), `${c.name} ← ${alias}`).toBe('exact')
+      }
+      for (const code of c.codes) {
+        if (!normalize(code)) continue
+        expect(grade(c.name, code, MODE), `${c.name} ← ${code}`).toBe('exact')
+      }
+    }
+  })
+
+  it('refuse de recopier la capitale énoncée', () => {
+    // Les rares pays dont la capitale porte le nom du pays (Djibouti, Panama,
+    // Guatemala…) rendent la question triviale, pas fausse.
+    expect(grade('Belgique', 'bruxelles', MODE)).toBe('wrong')
+    expect(grade('Japon', 'tokyo', MODE)).toBe('wrong')
+  })
+
+  it('identifie le pays nommé à tort', () => {
+    const target = country('Belgique')
+    const question = { country: target, accepted: acceptedFor(target, MODE) }
+    expect(identify('allemagne', question, MODE)?.country.name).toBe('Allemagne')
   })
 })
 

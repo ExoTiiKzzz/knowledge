@@ -62,7 +62,7 @@ export function RoundView({
             <Prompt
               mode={mode}
               countryCode={round.code}
-              countryName={round.name}
+              label={round.label}
               scope={scope}
               clickable={!hasAnswered && inPlay}
               onPickCountry={(code) => send(code)}
@@ -84,7 +84,7 @@ export function RoundView({
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 readOnly={hasAnswered || !inPlay}
-                placeholder={mode === 'capitals' ? 'Nom de la capitale…' : 'Nom du pays…'}
+                placeholder={MODES[mode].asks === 'capital' ? 'Nom de la capitale…' : 'Nom du pays…'}
                 autoComplete="off"
                 spellCheck={false}
                 aria-label={MODES[mode].prompt}
@@ -151,14 +151,15 @@ function Header({ view }: { view: RoomView }) {
 function Prompt({
   mode,
   countryCode,
-  countryName,
+  label,
   scope,
   clickable,
   onPickCountry,
 }: {
   mode: Mode
   countryCode: string
-  countryName: string | null
+  /** Ce que la question énonce en clair, `null` quand elle ne montre qu'une image. */
+  label: string | null
   scope: Scope
   clickable: boolean
   onPickCountry: (code: string) => void
@@ -176,8 +177,19 @@ function Prompt({
     return (
       <div className="flex flex-col items-center gap-3 py-2 text-center">
         <Flag code={countryCode} className="h-10" />
-        <p className="text-2xl font-semibold">{countryName}</p>
+        <p className="text-2xl font-semibold">{label}</p>
         <p className="text-sm text-muted-foreground">{MODES.capitals.prompt}</p>
+      </div>
+    )
+  }
+
+  if (mode === 'countryFromCapital') {
+    // La capitale seule : le drapeau donnerait le pays. Il n'apparaît qu'à la
+    // pause des résultats, avec celui que chacun a nommé.
+    return (
+      <div className="flex flex-col items-center gap-3 py-2 text-center">
+        <p className="text-2xl font-semibold">{label}</p>
+        <p className="text-sm text-muted-foreground">{MODES.countryFromCapital.prompt}</p>
       </div>
     )
   }
@@ -187,7 +199,7 @@ function Prompt({
   return (
     <div className="space-y-3">
       <div className="flex flex-col items-center gap-1 text-center">
-        {mode === 'mapFind' && <p className="text-2xl font-semibold">{countryName}</p>}
+        {mode === 'mapFind' && <p className="text-2xl font-semibold">{label}</p>}
         <p className="text-sm text-muted-foreground">{MODES[mode].prompt}</p>
       </div>
       <WorldMap
