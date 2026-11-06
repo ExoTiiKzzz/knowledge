@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+/*
+ * The passport look: a travel notebook. Paper, navy ink, rubber stamps in red
+ * and teal, a serif for the headings and a typewriter mono for every label.
+ *
+ * One theme, light, as pokefight has one theme: paper does not come in dark.
+ */
+
+:root {
+  --paper: #efe6d4;
+  --paper-deep: #e4d8c0;
+  --sheet: #fbf7ee;
+  --ink: #1e2433;
+  --ink-soft: #535b6f;
+  --navy: #1f3a68;
+  --navy-deep: #142847;
+  --stamp: #b23a2b;
+  --stamp-deep: #8c2a1e;
+  --teal: #1f6f78;
+  --teal-deep: #15515a;
+  --gold: #f2c14e;
+  --rule: #c9b994;
+  --sea: #d6e2df;
+  --target: #3b6fb6;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-deep: var(--paper-deep);
+  --color-sheet: var(--sheet);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-navy: var(--navy);
+  --color-navy-deep: var(--navy-deep);
+  --color-stamp: var(--stamp);
+  --color-stamp-deep: var(--stamp-deep);
+  --color-teal: var(--teal);
+  --color-teal-deep: var(--teal-deep);
+  --color-gold: var(--gold);
+  --color-rule: var(--rule);
+  --color-sea: var(--sea);
+  --color-target: var(--target);
+
+  /* Semantic names, so a component says what a colour is for. */
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --color-muted: var(--paper-deep);
+  --color-muted-foreground: var(--ink-soft);
+  --color-border: var(--rule);
+  --color-correct: var(--teal);
+  --color-wrong: var(--stamp);
+
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-dm-serif);
+  --font-mono: var(--font-plex-mono);
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+/*
+ * The guilloche of a passport page: faint waves behind everything, drawn
+ * rather than an image, fixed so they do not scroll with the content.
+ */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.45;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='100' viewBox='0 0 320 100'%3E%3Cpath d='M0 50 Q80 20 160 50 T320 50' fill='none' stroke='%23c9b994' stroke-width='1'/%3E%3C/svg%3E");
+  background-size: 320px 100px;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-dm-serif), Georgia, serif;
+  font-weight: 400;
+}
+
+/* The dashed rule of a form to fill in. */
+.rule-dashed {
+  border-color: var(--rule);
+  border-style: dashed;
+}
+
+/*
+ * A rubber stamp hitting the page: too big, then pressed down, a little
+ * crooked. Used for verdicts, new stamps and grades.
+ */
+.stamp-in {
+  animation: stamp-in 380ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@keyframes stamp-in {
+  0% { transform: scale(1.8) rotate(var(--tilt, -8deg)); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: scale(1) rotate(var(--tilt, -8deg)); opacity: 1; }
+}
+
+/* A number rising out of the answer: the points just earned. */
+.float-up {
+  animation: float-up 900ms ease-out both;
+}
+@keyframes float-up {
+  0% { transform: translateY(6px); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translateY(-14px); opacity: 0; }
+}
+
+/* A grade change, as a boarding pass sliding out. */
+.slide-in {
+  animation: slide-in 500ms cubic-bezier(0.2, 1, 0.3, 1) both;
+}
+@keyframes slide-in {
+  from { transform: translateY(16px); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp-in,
+  .slide-in {
+    animation: fade-in 200ms ease-out both;
+  }
+  .float-up {
+    animation: none;
+    opacity: 0;
+  }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+}

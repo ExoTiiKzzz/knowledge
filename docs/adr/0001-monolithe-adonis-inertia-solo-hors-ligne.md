@@ -1,5 +1,7 @@
 # Monolithe Adonis + Inertia, avec un solo qui reste hors ligne
 
+Status: superseded by ADR-0004
+
 L'ajout de salons multijoueurs temps réel imposait un serveur à une application qui n'en avait
 aucun. Nous servons désormais le front React existant depuis un monolithe AdonisJS 7 via
 Inertia, et le mode solo reste **entièrement côté client** : sa page Inertia monte

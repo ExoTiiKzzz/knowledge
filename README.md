@@ -1,32 +1,39 @@
 # Géo Quiz
 
 Entraînement aux drapeaux, capitales et emplacements des 194 pays du monde, filtrable par
-continent.
-Monolithe AdonisJS 7 + Inertia 5 + React 19 + Vite 8 + Tailwind v4 + shadcn/ui.
+continent — en solo, au défi du jour, ou à plusieurs dans un salon. Habillage « passeport » :
+chaque bonne réponse tamponne un pays dans le carnet.
+
+Next.js 16 (App Router) + Convex + Tailwind v4, connexion Google facultative via Convex Auth —
+la même pile que pokefight (ADR-0004).
 
 ```bash
-npm install
-npm run dev        # http://localhost:3333
+pnpm install
+npx convex dev --once   # pousse les fonctions Convex et vérifie leurs types
+pnpm dev                # http://localhost:3000
+pnpm test               # tests unitaires (node --test) de lib/
 ```
 
 ## Disposition
 
 ```
-shared/{lib,data}    logique pure, importée par le serveur ET le client
-inertia/             app/ pages/ components/ lib/  — le front
-app/ bin/ config/ start/   — le serveur
-resources/views/app.edge   — le gabarit racine d'Inertia
+app/          les pages (App Router) : /, /solo, /defi, /salon, /salon/[code], /carnet
+components/   le rendu ; components/ui.tsx porte les briques du thème
+lib/          logique pure, importée par le navigateur ET par Convex, testée sans serveur
+data/         pays et carte, générés par tools/
+convex/       le backend : salons, présence, passeports, authentification
+tools/        les générateurs de data/
 ```
 
-Les alias `@/lib` et `@/data` pointent vers `shared/`, `@/*` vers `inertia/`. Le code de
-`shared/` n'emploie **aucun** alias : ses imports sont relatifs avec extension `.ts` explicite,
-seule forme acceptée à la fois par Vite, Vitest et le compilateur AdonisJS.
+Le code de `lib/` n'emploie **aucun** alias : ses imports sont relatifs avec extension `.ts`
+explicite, seule forme qu'acceptent à la fois Next, Convex et `node --test` (qui retire les
+types sans résoudre les extensions).
 
-Deux projets TypeScript : `tsconfig.json` pour le serveur (qui exclut `inertia/**`) et
-`inertia/tsconfig.json` pour le client. `npm run typecheck` vérifie les deux.
+`convex/` est exclu du typage de Next : `convex/_generated/` n'existe qu'une fois un déploiement
+configuré, et c'est `npx convex dev --once` qui vérifie ce dossier.
 
-Le **mode solo ne parle jamais au serveur** : sa page monte l'application cliente et fonctionne
-hors ligne une fois chargée.
+Le **solo ne parle jamais au serveur** pour un invité : une fois la page chargée, il fonctionne
+hors ligne, passeport compris.
 
 ## Multijoueur
 
@@ -34,32 +41,50 @@ Un joueur crée un **salon**, partage son code à 4 caractères ou son lien, et 
 rejoignent avec un pseudonyme. Tous affrontent **la même manche au même instant** ; une bonne
 réponse rapporte d'autant plus qu'elle arrive tôt.
 
-Le **serveur est seul juge** : le client envoie la saisie brute, le serveur corrige en réutilisant
+Le **serveur est seul juge** : le client envoie la saisie brute, Convex corrige en réutilisant
 la correction du solo, tient l'horloge et clôt les manches. Le client n'applique aucune règle — il
-affiche la vue qu'on lui pousse.
+affiche la vue qu'on lui donne.
 
-- **Moteur** — [shared/lib/room.ts](shared/lib/room.ts), réducteur pur
+- **Moteur** — [lib/room.ts](lib/room.ts), réducteur pur
   `(état, événement, maintenant) → { état, effets }`. Ni horloge, ni aléatoire, ni réseau : c'est
-  ce qui rend les 74 tests de [room.test.ts](shared/lib/room.test.ts) possibles sans démarrer
-  l'application ni attendre un délai réel.
-- **Adaptateur** — `app/rooms/registry.ts` exécute les effets : diffuser l'état à chaque joueur,
-  et programmer le réveil qui clôt une manche à son échéance.
-- **Transport** — événements serveur (SSE) du serveur vers les clients, un POST par réponse. Le
-  trafic est asymétrique : un seul message client→serveur par manche.
+  ce qui rend les tests de [room.test.ts](lib/room.test.ts) possibles sans démarrer l'application
+  ni attendre un délai réel.
+- **Adaptateur** — [convex/rooms.ts](convex/rooms.ts) : chaque mutation lit le salon (un seul
+  document), le réduit, le réécrit, et programme le réveil qui clôt une manche à son échéance
+  (`ctx.scheduler.runAt`). Un réveil que le salon n'attend plus ne fait rien à son arrivée.
+- **Transport** — aucun code : `rooms.view` est une requête réactive, chaque joueur reçoit sa
+  vue dès que le salon change.
 
-Trois points d'implémentation à connaître :
+Deux points d'implémentation à connaître :
 
-- Le client SSE est **écrit à la main** (une trentaine de lignes dans
-  `inertia/browser/room-client.ts`). `@adonisjs/transmit-client` 1.1.0, dernière version
-  publiée, ouvre le flux sans le `uid` que le serveur en 3.x exige — la requête part en 500.
-- **`/api/rooms` et `/__transmit` sont exemptés de CSRF**, et ce n'est pas un relâchement :
-  l'autorité est le jeton du joueur transmis dans le corps de la requête, qu'un site tiers ne peut
-  pas connaître. Aucun cookie ne porte de privilège.
-- Ne pas attendre l'événement `open` du flux pour s'abonner : Adonis n'émet les en-têtes qu'au
-  premier message, donc `open` n'arriverait jamais — l'abonnement part aussitôt et se réessaie.
+- **Présence par battement.** Il n'y a plus de connexion dont la fermeture signale un départ :
+  chaque page de salon appelle `rooms.heartbeat` toutes les 5 s, dans une table à part pour ne
+  pas rafraîchir tout le monde. Un joueur muet depuis 15 s est marqué absent (ce qui peut clore
+  la manche qu'il retenait) ; un salon que personne n'a touché depuis 30 min est supprimé par
+  la tâche planifiée de [convex/crons.ts](convex/crons.ts).
+- **Le jeton est l'autorité.** Il vit dans le stockage local et accompagne chaque mutation ;
+  deux joueurs ne peuvent donc pas partager un même profil de navigateur.
 
-Deux joueurs ne peuvent pas partager un même profil de navigateur : le jeton vit dans le stockage
-local, qui est par origine.
+## Passeport
+
+Le solo et le défi du jour alimentent un **passeport** ([lib/progress.ts](lib/progress.ts)) ; une
+partie multijoueur n'y verse rien (ADR-0005).
+
+- **Points et combo** — en solo, une bonne réponse vaut de 1 000 à 200 points selon le temps mis
+  (sur 15 s, sans échéance), multipliés par le combo : ×1,5 dès 3 bonnes réponses d'affilée, ×2
+  dès 6, ×3 dès 10. Une erreur le remet à zéro.
+- **Miles et niveaux** — les points d'une partie, divisés par dix. Le niveau *n* demande
+  250·n·(n−1) miles ; chaque tranche porte un grade, de Touriste à Globe-trotter.
+- **Tampons et médailles** — un pays trouvé dans un mode est tamponné une fois pour toutes. Un
+  continent rapporte bronze, argent ou or à 25 %, 60 % et 100 % de ses pays tamponnés.
+- **Défi du jour** — dix questions de tous les modes, tirées d'une graine dérivée de la date UTC
+  ([lib/daily.ts](lib/daily.ts)) : identiques pour tous, jouables hors ligne, comptées une fois.
+  Chaque jour d'affilée ajoute 10 % aux miles du défi, jusqu'au double.
+- **Records** — le meilleur pourcentage par mode et continent, comme avant ; les records
+  enregistrés par l'ancienne version sont repris au premier chargement.
+
+Le passeport d'un invité vit dans `localStorage` ; à la première connexion Google il est fusionné
+dans le compte, puis oublié du navigateur.
 
 ## Cinq modes
 
@@ -76,7 +101,7 @@ Le mode inversé n'affiche aucun drapeau avant la réponse — il donnerait le p
 
 Chaque mode se restreint à un continent (Afrique, Amérique du Nord, Amérique du Sud, Asie,
 Europe, Océanie) ou couvre le monde entier, sur 10, 20, 50 questions ou la totalité du
-périmètre. Le meilleur score est conservé par couple mode + continent dans `localStorage`.
+périmètre. Le meilleur score est conservé par couple mode + continent dans le passeport.
 
 En solo, la série s'enchaîne sans la souris : Entrée valide, puis **Entrée ou Espace** passe à la
 question suivante — y compris dans les modes carte, où l'on répond à la souris mais où l'on
@@ -86,7 +111,7 @@ enchaîne au clavier. Pendant la saisie, Espace reste un espace : les réponses 
 ## Correction tolérante
 
 La réponse est saisie librement, et une orthographe approchante est acceptée
-([shared/lib/answer.ts](shared/lib/answer.ts)) :
+([lib/answer.ts](lib/answer.ts)) :
 
 1. **Normalisation** — minuscules, accents, ponctuation, articles et espaces retirés.
    `N'Djaména` = `ndjamena`, `Le Caire` = `caire`.
@@ -116,7 +141,7 @@ Pour ajouter un raccourci, voir [Données](#données) ci-dessous.
 ## Erreurs identifiées
 
 Quand la réponse est fausse, l'app cherche ce qu'elle désignait réellement et l'affiche
-(`identify()` dans [shared/lib/quiz.ts](shared/lib/quiz.ts)).
+(`identify()` dans [lib/quiz.ts](lib/quiz.ts)).
 
 En **mode Drapeaux**, les deux drapeaux remplacent la question et se présentent côte à côte,
 à hauteur de cadre égale pour être comparés — répondre `france` au drapeau britannique
@@ -143,12 +168,12 @@ Deux garde-fous, pour ne pas raconter n'importe quoi :
   ressemble à aucun d'eux.
 
 ```bash
-npm test          # 211 tests, dont la validation de tout le jeu de données
+pnpm test         # dont la validation de tout le jeu de données
 ```
 
 ## La carte
 
-[inertia/components/WorldMap.tsx](inertia/components/WorldMap.tsx) rend un SVG dont les chemins sont
+[components/WorldMap.tsx](components/WorldMap.tsx) rend un SVG dont les chemins sont
 **projetés à la génération** (projection Natural Earth) : le navigateur ne reçoit que des
 chaînes `d`, sans `d3-geo` ni `topojson` dans le bundle.
 
@@ -188,10 +213,9 @@ dans le générateur, et non déduites de l'emprise des pays : la Russie étirer
 tout l'hémisphère nord, la Guyane rattacherait la France à l'Amérique du Sud, et les Fidji
 font franchir l'antiméridien à l'Océanie. Le cadrage d'un continent est un choix de lecture.
 
-**Contraste des frontières.** `--border` étant presque de la couleur de `--muted`, les
-frontières n'offraient qu'un contraste de 1,16:1 — autant dire aucune. Le tracé dérive
-désormais de `--muted-foreground`, à 3,3:1 en thème clair et 3,0:1 en sombre (mesuré au
-canvas, composition alpha comprise), pour 0,9 px d'épaisseur à l'écran quel que soit le zoom.
+**Contraste des frontières.** Une frontière de la couleur du papier ne se verrait pas : le
+tracé est à l'encre adoucie (`--ink-soft`), pour viser le 3:1 d'un élément graphique porteur de
+sens, et 0,9 px d'épaisseur à l'écran quel que soit le zoom.
 
 **Cerclage des pays minuscules.** Même avec le zoom, il faut d'abord *trouver* le pays
 surligné. En deçà de 1,3 % de la largeur affichée, il est donc cerclé. Le seuil étant relatif
@@ -209,22 +233,69 @@ Deux subtilités sur ces cercles :
 
 ## Données
 
-[shared/data/countries.ts](shared/data/countries.ts) et [shared/data/map.ts](shared/data/map.ts) sont
+[data/countries.ts](data/countries.ts) et [data/map.ts](data/map.ts) sont
 **générés** — ne pas les éditer à la main :
 
 ```bash
-npm run gen:countries && npm run gen:map
+pnpm data
 ```
 
-[scripts/generate-countries.mjs](scripts/generate-countries.mjs) part du paquet
+[tools/generate-countries.mjs](tools/generate-countries.mjs) part du paquet
 `world-countries` (membres de l'ONU uniquement) et y applique les corrections françaises :
 les capitales n'y figurent qu'en anglais, et quelques traductions sont datées. C'est là
 qu'on ajoute une capitale, un alias ou un pays.
 
-[scripts/generate-map.mjs](scripts/generate-map.mjs) part de `world-atlas` (Natural Earth
+[tools/generate-map.mjs](tools/generate-map.mjs) part de `world-atlas` (Natural Earth
 110m) et joint les pays sur leur code ISO numérique. C'est là qu'on retouche une fenêtre de
 cadrage ou la précision des tracés.
 
 Les drapeaux sont servis par [flagcdn.com](https://flagcdn.com) d'après le code ISO 3166-1
 alpha-2 — une connexion est donc nécessaire ; à défaut le code pays s'affiche en repli. La
 carte, elle, est entièrement locale.
+
+## Convex
+
+```bash
+npx convex dev --once   # pousse les fonctions et vérifie leurs types, sans surveiller
+pnpm test:room          # un salon de bout en bout contre le déploiement (~40 s)
+```
+
+Préférer `--once` : la limite de surveillance inotify de cette machine (65 536) fait tomber les
+observateurs, de `npx convex dev` comme de `next dev`, avec `ENOSPC`. Pour la relever (root) :
+
+```bash
+echo 'fs.inotify.max_user_watches=524288' | sudo tee /etc/sysctl.d/60-inotify.conf && sudo sysctl --system
+```
+
+En attendant, `pnpm build && pnpm start` remplace `pnpm dev`.
+
+## Connexion Google
+
+Convex Auth, Google pour seul fournisseur. Se connecter n'est jamais requis. Les identifiants
+sont lus par **le runtime Convex**, pas par Next : ils vont sur le déploiement, jamais dans
+`.env.local` ni dans Vercel.
+
+```bash
+npx convex env set AUTH_GOOGLE_ID     <client-id>
+npx convex env set AUTH_GOOGLE_SECRET <client-secret>
+```
+
+`SITE_URL` (http://localhost:3000 en dev), `JWT_PRIVATE_KEY` et `JWKS` sont déjà posés sur le
+déploiement de dev. Dans Google Cloud Console (APIs & Services → Credentials → OAuth client ID →
+Web application), l'URI de redirection autorisée est l'URL **HTTP actions** du déploiement — la
+`.convex.site`, pas la `.convex.cloud` :
+
+```
+https://<deployment>.convex.site/api/auth/callback/google
+```
+
+## Déployer sur Vercel
+
+**Variables du projet Vercel** : `CONVEX_DEPLOY_KEY` (tableau de bord Convex → Settings →
+Deploy keys). `NEXT_PUBLIC_CONVEX_URL` n'est pas nécessaire : `convex deploy` l'injecte.
+
+**Commande de build** (déjà dans `vercel.json`) : `npx convex deploy --cmd 'pnpm build'`.
+
+**Déploiement Convex de production** (`npx convex env set --prod`) : `AUTH_GOOGLE_ID`,
+`AUTH_GOOGLE_SECRET`, `SITE_URL` (le domaine Vercel — une valeur périmée casse la connexion sans
+bruit), puis `JWT_PRIVATE_KEY` et `JWKS` via `npx @convex-dev/auth --prod`.

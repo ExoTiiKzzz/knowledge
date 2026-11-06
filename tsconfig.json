@@ -1,23 +1,40 @@
 {
-  "extends": "@adonisjs/tsconfig/tsconfig.app.json",
   "compilerOptions": {
-    "rootDir": "./",
-    "outDir": "./build",
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    // Node's built-in test runner strips types rather than resolving extensions,
+    // so test files must import "./game.ts" explicitly. Legal here because of noEmit.
+    "allowImportingTsExtensions": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "paths": {
-      "@/lib/*": [
-        "./shared/lib/*"
-      ],
-      "@/data/*": [
-        "./shared/data/*"
-      ]
+      "@/*": ["./*"]
     }
   },
-  "exclude": [
-    "node_modules",
-    "build",
-    "dist",
-    "inertia/**",
-    "**/*.test.ts",
-    "scripts/**"
-  ]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  // convex/ is typechecked by `npx convex dev`, which owns the generated types in
+  // convex/_generated. Those do not exist until a deployment is configured, so the
+  // Next build cannot check this directory.
+  "exclude": ["node_modules", "convex"]
 }

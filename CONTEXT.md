@@ -97,3 +97,60 @@ Le joueur qui règle et lance les parties d'un salon. C'est un rôle attaché au
 une personne : il se transmet dès que son titulaire s'en va.
 _Avoid_: propriétaire, créateur, admin, maître de jeu
 _Dans le code_ : `host`
+
+### Progression
+
+**Passeport**:
+Tout ce qu'un joueur a accumulé : miles, tampons, records, jours d'affilée. Celui d'un invité
+vit dans son navigateur, celui d'un compte dans Convex. Seuls le solo et le défi du jour
+l'alimentent (ADR-0005). La page qui l'affiche s'appelle le **carnet**.
+_Avoid_: profil, progression (au sens de l'objet), statistiques
+_Dans le code_ : `Progress`
+
+**Miles**:
+L'expérience gagnée en jouant : les points d'une partie, divisés par dix. Ils ne se perdent
+jamais.
+_Avoid_: XP, expérience
+_Dans le code_ : `miles`
+
+**Niveau** et **grade**:
+Le niveau découle des miles cumulés ; le grade est le nom d'une tranche de niveaux, de
+Touriste à Globe-trotter.
+_Avoid_: rang, palier
+_Dans le code_ : `level`, `gradeFor`
+
+**Tampon**:
+Un pays trouvé au moins une fois dans un mode donné. Le drapeau de la France et sa capitale
+sont deux tampons distincts.
+_Avoid_: badge, pays débloqué
+_Dans le code_ : `stamps`, `stampKey`
+
+**Médaille**:
+Ce qu'un continent rapporte dans un mode selon la part de ses pays tamponnés : bronze, argent,
+or.
+_Avoid_: trophée, badge
+_Dans le code_ : `Medal`, `masteryOf`
+
+**Combo**:
+Le nombre de bonnes réponses d'affilée dans une partie solo. Il multiplie les points à partir
+de la troisième, et retombe à zéro à la première erreur.
+_Avoid_: série, streak
+_Dans le code_ : `combo`, `comboMultiplier`
+
+**Défi du jour**:
+Dix questions de tous les modes sur le monde entier, les mêmes pour tous un jour donné, jouables
+une fois. Le jour est celui du calendrier UTC.
+_Avoid_: daily, quotidienne
+_Dans le code_ : `daily`, `dailyQuestions`
+
+**Jours d'affilée**:
+Le nombre de jours consécutifs où le défi a été joué. Chacun ajoute un dixième aux miles du
+défi, jusqu'au double ; un jour manqué le remet à zéro.
+_Avoid_: série, streak (dans la prose)
+_Dans le code_ : `streak`
+
+**Compte** et **invité**:
+Un joueur connecté avec Google a un compte, qui porte son passeport d'un appareil à l'autre.
+Sans connexion il est invité ; il joue à tout de la même façon.
+_Avoid_: utilisateur, membre
+_Dans le code_ : `users`, `signedIn`
