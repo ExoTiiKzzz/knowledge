@@ -377,11 +377,11 @@ export function RoundClock({ view, className }: { view: RoomView; className?: st
   const mine = result?.answers.find((a) => a.token === view.me)
 
   return (
-    <div className={cn('space-y-4 rounded-md bg-navy p-5 text-sheet shadow-[0_14px_32px_rgb(20_40_71/0.25)]', className)}>
+    <div className={cn('space-y-3 rounded-md bg-navy p-4 text-sheet shadow-[0_14px_32px_rgb(20_40_71/0.25)] lg:space-y-4 lg:p-5', className)}>
       <div className="flex items-end justify-between gap-4">
         <div className="space-y-1">
           <p className="font-mono text-xs tracking-[0.1em] text-sheet/75 uppercase">{label}</p>
-          <p className="font-display text-5xl leading-none tabular-nums">{formatClock(remaining)}</p>
+          <p className="font-display text-4xl leading-none tabular-nums lg:text-5xl">{formatClock(remaining)}</p>
         </div>
         {canAnswer ? (
           <div className="space-y-1 text-right">

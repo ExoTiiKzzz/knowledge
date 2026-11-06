@@ -220,6 +220,14 @@ export function QuizGame({ stops, scope, onFinish, onQuit }: QuizGameProps) {
         wide ? 'max-w-6xl' : 'max-w-5xl',
       )}
     >
+      <ClockBar
+        remaining={remaining}
+        atStake={atStake}
+        answeredRight={last ? last.points > 0 : null}
+        combo={combo}
+        index={index}
+        count={stops.length}
+      />
 
       <Sheet className="min-w-0 space-y-5 px-4 py-5 sm:px-8 sm:py-7">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 font-mono text-xs tracking-[0.1em] text-ink-soft uppercase">
@@ -317,6 +325,55 @@ export function QuizGame({ stops, scope, onFinish, onQuit }: QuizGameProps) {
   )
 }
 
+/**
+ * Le chrono d'un téléphone : une barre collée en haut de l'écran.
+ *
+ * Sur un téléphone le tableau de bord passe sous la question, et une carte le
+ * repousse hors de l'écran ; cette barre garde l'essentiel en vue, et remplace
+ * alors le chrono du tableau de bord. Elle disparaît dès que celui-ci tient à
+ * droite.
+ */
+function ClockBar({
+  remaining,
+  atStake,
+  answeredRight,
+  combo,
+  index,
+  count,
+}: {
+  remaining: number
+  atStake: number
+  answeredRight: boolean | null
+  combo: number
+  index: number
+  count: number
+}) {
+  const seconds = Math.ceil(remaining / 1000)
+  const multiplier = comboMultiplier(combo)
+  return (
+    <div
+      className="sticky top-0 z-20 -mx-1 flex items-center justify-between gap-3 rounded-b-md bg-navy px-4 py-2.5 text-sheet shadow-[0_6px_16px_rgb(20_40_71/0.25)] md:hidden"
+    >
+      <p className="font-display text-2xl leading-none tabular-nums">
+        <span className="sr-only">Temps : </span>0:{String(seconds).padStart(2, '0')}
+      </p>
+      <p className="font-mono text-[11px] tracking-[0.1em] text-sheet/75 uppercase">
+        <span className="sr-only">Escale </span>
+        {index + 1} / {count}
+        {multiplier > 1 && <span className="ml-2 font-semibold text-gold">×{multiplier.toLocaleString('fr-FR')}</span>}
+      </p>
+      <p
+        className={cn(
+          'font-display text-xl leading-none tabular-nums',
+          answeredRight === false ? 'text-sheet/60' : 'text-gold',
+        )}
+      >
+        <span className="sr-only">{answeredRight === null ? 'Points en jeu : ' : 'Points gagnés : '}</span>+{atStake}
+      </p>
+    </div>
+  )
+}
+
 /** Le tableau de bord du voyage : chrono, points en jeu, combo, total et escales. */
 function Board({
   remaining,
@@ -351,7 +408,8 @@ function Board({
       aria-label="Tableau de bord"
       className="grid min-w-0 gap-4 md:sticky md:top-4"
     >
-      <div className="flex items-center justify-between gap-4 rounded-md bg-navy px-5 py-4 text-sheet">
+      {/* Sur un téléphone, la barre collée en haut tient déjà ce rôle. */}
+      <div className="hidden items-center justify-between gap-4 rounded-md bg-navy px-5 py-4 text-sheet md:flex">
         <div className="space-y-1">
           <p className="font-mono text-[11px] tracking-[0.1em] uppercase opacity-75">
             {remaining > 0 ? 'Embarquement dans' : 'Dernier appel'}

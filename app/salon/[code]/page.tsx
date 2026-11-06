@@ -264,7 +264,8 @@ function Room({
           clock goes above the question, the passengers below it.
         */}
         <div className="contents lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1 lg:block lg:space-y-6">
-          {playing && <RoundClock view={view} className="order-1" />}
+          {/* Stuck to the top of a phone's screen too, so the map never hides it. */}
+          {playing && <RoundClock view={view} className="sticky top-0 z-20 order-1 lg:static" />}
           <aside className="order-3 min-w-0 space-y-6">
             <Sheet className="p-5">
               <Standings view={view} />
