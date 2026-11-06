@@ -190,15 +190,15 @@ export function QuizGame({ stops, scope, onFinish, onQuit }: QuizGameProps) {
   }
 
   // Une carte a besoin de place : les modes qui en affichent une élargissent la
-  // partie et rangent le tableau de bord au-dessus ; les autres le gardent à
-  // côté de la question, ou dessous sur un téléphone.
+  // partie. Le tableau de bord, lui, reste à droite dans tous les modes, et y
+  // reste collé quand la page défile — sinon une carte haute repousse le chrono
+  // hors de l'écran. Sur un téléphone, il passe sous la question.
   const wide = spec.needsMap
   const remaining = Math.max(0, SOLO_PACE_MS - elapsed)
   const atStake = last ? last.points : soloPoints(RIGHT, elapsed, combo)
 
   const board = (
     <Board
-      wide={wide}
       remaining={remaining}
       atStake={atStake}
       answeredRight={last ? last.points > 0 : null}
@@ -216,11 +216,10 @@ export function QuizGame({ stops, scope, onFinish, onQuit }: QuizGameProps) {
       // Pas de transition sur la largeur : animer `max-width` fait refluer
       // toute la page, alors que l'écran change de toute façon d'un coup.
       className={cn(
-        'mx-auto grid w-full gap-5',
-        wide ? 'max-w-6xl' : 'max-w-5xl md:grid-cols-[minmax(0,1fr)_17rem] md:items-start',
+        'mx-auto grid w-full gap-5 md:grid-cols-[minmax(0,1fr)_17rem] md:items-start',
+        wide ? 'max-w-6xl' : 'max-w-5xl',
       )}
     >
-      {wide && board}
 
       <Sheet className="min-w-0 space-y-5 px-4 py-5 sm:px-8 sm:py-7">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 font-mono text-xs tracking-[0.1em] text-ink-soft uppercase">
@@ -313,14 +312,13 @@ export function QuizGame({ stops, scope, onFinish, onQuit }: QuizGameProps) {
         )}
       </Sheet>
 
-      {!wide && board}
+      {board}
     </div>
   )
 }
 
 /** Le tableau de bord du voyage : chrono, points en jeu, combo, total et escales. */
 function Board({
-  wide,
   remaining,
   atStake,
   answeredRight,
@@ -331,7 +329,6 @@ function Board({
   count,
   index,
 }: {
-  wide: boolean
   remaining: number
   atStake: number
   /** `null` tant que la question est ouverte. */
@@ -352,7 +349,7 @@ function Board({
   return (
     <aside
       aria-label="Tableau de bord"
-      className={cn('grid min-w-0 gap-4', wide ? 'sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]' : '')}
+      className="grid min-w-0 gap-4 md:sticky md:top-4"
     >
       <div className="flex items-center justify-between gap-4 rounded-md bg-navy px-5 py-4 text-sheet">
         <div className="space-y-1">

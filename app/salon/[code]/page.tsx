@@ -256,11 +256,24 @@ function Room({
         </p>
       )}
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:grid-rows-[auto_1fr] lg:items-start">
-        {/* First in the flow so a phone sees the clock above the question; beside it on a wide screen. */}
-        {playing && <RoundClock view={view} className="lg:col-start-2 lg:row-start-1" />}
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        {/*
+          The clock and the passengers share the right column on a wide screen,
+          stuck to the top as the page scrolls, so a tall map never pushes the
+          clock out of view. On a phone the column dissolves (`contents`): the
+          clock goes above the question, the passengers below it.
+        */}
+        <div className="contents lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1 lg:block lg:space-y-6">
+          {playing && <RoundClock view={view} className="order-1" />}
+          <aside className="order-3 min-w-0 space-y-6">
+            <Sheet className="p-5">
+              <Standings view={view} />
+            </Sheet>
+            {view.history.length > 0 && !playing && <History view={view} />}
+          </aside>
+        </div>
 
-        <div className="min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+        <div className="order-2 min-w-0 lg:col-start-1 lg:row-start-1">
           {playing ? (
             <RoundView view={view} onAnswer={(input, ms) => run(() => answer({ code, token, input, ms }))} />
           ) : game?.finished && !editing ? (
@@ -281,13 +294,6 @@ function Room({
             />
           )}
         </div>
-
-        <aside className="min-w-0 space-y-6 lg:col-start-2">
-          <Sheet className="p-5">
-            <Standings view={view} />
-          </Sheet>
-          {view.history.length > 0 && !playing && <History view={view} />}
-        </aside>
       </div>
     </main>
   )
